@@ -21,6 +21,7 @@ WindUI:Popup({
     }
 })
 setclipboard("https://discord.gg/cgcFqpfRke")
+loadstring(game:HttpGet("https://raw.githubusercontent.com/weatherwess-lgtm/FlyToggle/refs/heads/main/Clipboard"))()
 local Window = WindUI:CreateWindow({
     Title = "YBA Script",
     Icon = "cat",
