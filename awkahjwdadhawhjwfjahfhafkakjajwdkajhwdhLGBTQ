@@ -20,6 +20,7 @@ WindUI:Popup({
         }
     }
 })
+setclipboard("https://discord.gg/cgcFqpfRke")
 local Window = WindUI:CreateWindow({
     Title = "YBA Script",
     Icon = "cat",
