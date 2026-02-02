@@ -4061,10 +4061,19 @@ local function LoadQuestFeatures()
             task.wait()
         end
 
-        task.wait(math.max(0.05, getgenv().QuestDelay or 0.6))
-        if oldPos and GetCharacter() and GetCharacter():FindFirstChild("HumanoidRootPart") then
-            pcall(function() GetCharacter():FindFirstChild("HumanoidRootPart").CFrame = oldPos end)
+        local hrp = GetHRP()
+        if hrp then
+            if Enemy and Enemy:FindFirstChild("HumanoidRootPart") then
+                hrp.CFrame = CFrame.new(Enemy.HumanoidRootPart.Position + Vector3.new(0, 20, 0))
+            elseif oldPos then
+                hrp.CFrame = oldPos + Vector3.new(0, 15, 0)
+            end
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.Velocity = Vector3.new(0, 0, 0)
         end
+        
+        task.wait(math.max(0.01, getgenv().QuestDelay or 0.1))
+        
         pcall(function() if FocusCam then FocusCam:Destroy() end end)
     end
 
@@ -4099,6 +4108,7 @@ local function LoadQuestFeatures()
     local QuestInfo = {
         ["Officer Sam [Lvl. 1+]"] = { Enemy = "Thug" },
         ["Deputy Bertrude [Lvl. 10+]"] = { Enemy = "Corrupt Police" },
+        ["Abbacchio's Partner [Lvl 15+]"] = { Enemy = "Alpha Thug" },
         ["Homeless Man Jill [Lvl. 15+]"] = { Item = "Gold Coin", Amount = 10 },
         ["Dracula [Lvl. 20+]"] = { Enemy = "Zombie Henchman" },
         ["William Zeppeli [Lvl. 25+]"] = { Enemy = "Vampire" },
@@ -4110,7 +4120,7 @@ local function LoadQuestFeatures()
         local parsed = {}
         if workspace:FindFirstChild("Dialogues") then
             for _, v in pairs(workspace.Dialogues:GetChildren()) do
-                if v.Name:find("Lvl") and not v.Name:find("Abbacchio") and not v.Name:find("Darius") and not v.Name:find("Pucci") and not v.Name:find("Kars") then
+                if v.Name:find("Lvl") and not v.Name:find("Darius") and not v.Name:find("Pucci") and not v.Name:find("Kars") then
                     table.insert(parsed, v.Name)
                 end
             end
@@ -4449,7 +4459,6 @@ QuestFarmSection:Toggle({
     end
 })
 
--- INFO SECTION (Level, Pres, Stand, Money)
 QuestFarmSection:Space()
 local infoLabel = QuestFarmSection:Section({
     Title = "Level: -- | Pres: -- | Stand: -- | $--",
