@@ -171,19 +171,19 @@ AboutSection:Section({
 })
 AboutSection:Space()
 AboutSection:Section({
-    Title = "New Features & Tips",
+    Title = "Tips",
     TextSize = 18,
     TextTransparency = .35,
     FontWeight = Enum.FontWeight.Medium,
 })
 AboutSection:Section({
-    Title = "- Safe Place farming: Safest method with instant teleportation",
+    Title = "- If you want the script to automatically pick quests for you until max, select the highest level which is Level 35",
     TextSize = 18,
     TextTransparency = .35,
     FontWeight = Enum.FontWeight.Medium,
 })
 AboutSection:Section({
-    Title = "- New bypass system: Supported executor support",
+    Title = "- And if your farming for item please enable the Auto Sell on max to avoid ignoring maxed item",
     TextSize = 18,
     TextTransparency = .35,
     FontWeight = Enum.FontWeight.Medium,
@@ -707,7 +707,7 @@ end
 local studMultiplier = 1
 local tweenMultiplier = 1
 local function travelToStud(target)
-if not player.Character or not player.Character.HumanoidRootPart then return end
+    if not player.Character or not player.Character.HumanoidRootPart then return end
     local hrp = player.Character.HumanoidRootPart
     local targetPos = typeof(target) == "Vector3" and target or target.Position
     local vector = targetPos - hrp.Position
@@ -716,9 +716,9 @@ if not player.Character or not player.Character.HumanoidRootPart then return end
     local num_tp = math.ceil(length / step_size)
     if num_tp < 1 then num_tp = 1 end
     for i = 1, num_tp do
-if not player.Character or not player.Character.HumanoidRootPart then return end
+        if not player.Character or not player.Character.HumanoidRootPart then return end
         hrp.CFrame = hrp.CFrame + vector / num_tp
-wait(tpDelay)
+        wait(tpDelay)
     end
 end
 local function travelToTween(target)
@@ -1589,6 +1589,22 @@ AdjustTab:Slider({
     },
     Callback = function(value)
         tweenMultiplier = value / 100
+    end
+})
+AdjustTab:Section({
+    Title = "Tp Delay"
+})
+AdjustTab:Slider({
+    Flag = "TpDelaySlider",
+    Title = "Tp Delay (seconds)",
+    Step = 0.01,
+    Value = {
+        Min = 0,
+        Max = 1,
+        Default = 0.05
+    },
+    Callback = function(value)
+        tpDelay = value
     end
 })
 local antiAFKToggle = MiscTab:Toggle({
@@ -2643,7 +2659,7 @@ local pilotToggle = TrollingTab:Toggle({
             end
             
             if standHRP and hrp then
-                hrp.CFrame = standHRP.CFrame - Vector3.new(0, 36, 0)
+                hrp.CFrame = standHRP.CFrame - Vector3.new(0, 25, 0)
             end
         end))
         
@@ -3176,6 +3192,76 @@ do
             notify("YBA Script", "Bought Lucky Arrow")
         end
     })
+
+local autoBuyLuckyArrow = false
+local luckyArrowPrice = 75000
+
+ItemsSection:Toggle({
+    Flag = "AutoBuyLuckyArrow",
+    Title = "Auto Buy Lucky Arrow",
+    Default = false,
+    Callback = function(value)
+        autoBuyLuckyArrow = value
+        if value then
+            notify("YBA Script", "Auto Buy Lucky Arrow enabled! Will buy when money reaches $" .. luckyArrowPrice)
+            
+            spawn(function()
+                while autoBuyLuckyArrow do
+                    wait(1)
+                    pcall(function()
+                        local player = game.Players.LocalPlayer
+                        if not player then return end
+                        
+                        local stats = player:FindFirstChild("PlayerStats")
+                        if not stats then return end
+                        
+                        local money = stats:FindFirstChild("Money")
+                        if not money then return end
+                        
+                        local currentCount = 0
+                        local maxLuckyArrows = 10
+                        
+                        local marketplaceService = game:GetService("MarketplaceService")
+                        local has2x = pcall(function()
+                            return marketplaceService:UserOwnsGamePassAsync(player.UserId, 14597778)
+                        end) and marketplaceService:UserOwnsGamePassAsync(player.UserId, 14597778)
+                        
+                        if has2x then
+                            maxLuckyArrows = 20
+                        end
+                        
+                        if player.Backpack then
+                            for _, item in pairs(player.Backpack:GetChildren()) do
+                                if item.Name == "Lucky Arrow" then
+                                    currentCount = currentCount + 1
+                                end
+                            end
+                        end
+                        
+                        if player.Character then
+                            for _, item in pairs(player.Character:GetChildren()) do
+                                if item.Name == "Lucky Arrow" then
+                                    currentCount = currentCount + 1
+                                end
+                            end
+                        end
+                        
+                        if money.Value >= luckyArrowPrice and currentCount < maxLuckyArrows then
+                            local char = player.Character
+                            if char and char:FindFirstChild("RemoteEvent") then
+                                char.RemoteEvent:FireServer("PurchaseShopItem", {["ItemName"] = "1x Lucky Arrow"}, 1, 2)
+                                notify("YBA Script", "Auto-bought Lucky Arrow! ($" .. luckyArrowPrice .. ") - Have: " .. (currentCount + 1) .. "/" .. maxLuckyArrows)
+                                wait(2)
+                            end
+                        end
+                    end)
+                end
+            end)
+        else
+            notify("YBA Script", "Auto Buy Lucky Arrow disabled.")
+        end
+    end
+})
     
     ItemsSection:Button({
         Title = "Buy DIO's Diary ($20,000)",
@@ -3650,15 +3736,6 @@ local function LoadStandFarmFeatures()
         end
     end
     
-    local function FarmItems(List)
-        for Prompt, Item in pairs(Util:GetTable("Queue")) do
-            local ItemName = Item.ItemName
-            if table.find(List, ItemName) and not Util:IsMax(ItemName) then
-                pcall(function() Util:Collect(Item.ItemModel) end)
-            end
-        end
-    end
-    
     StandFarmSettings:Toggle({
         Flag = "StandFarm_UseRedeemed",
         Title = "Use Redeemed Items",
@@ -3678,67 +3755,367 @@ local function LoadStandFarmFeatures()
     })
     
     StandFarmSettings:Toggle({
-        Flag = "StandFarm_Enabled",
-        Title = "Enable Stand Farm",
-        Default = false,
-        Callback = function(State)
-            if State then
-                standFarmRunning = true
-                notify("Stand Farm", "Stand farming started!")
+    Flag = "StandFarm_Enabled",
+    Title = "Enable Stand Farm",
+    Default = false,
+    Callback = function(State)
+        if State then
+            local selectedStands = Util:GetTable("Stands")
+            local keepAnyShiny = Util:GetState("Keep any shiny")
+            
+            if #selectedStands == 0 and not keepAnyShiny then
+                notify("Stand Farm", "No stands selected! Please select stands to farm first, or enable 'Keep Any Shiny'")
+                StandFarmSettings:Set("StandFarm_Enabled", false)
+                return
+            end
+            
+            if keepAnyShiny and #selectedStands == 0 then
+                notify("Stand Farm", "Keep Any Shiny enabled - will farm for ANY shiny stand")
+            end
+            
+            standFarmRunning = true
+            notify("Stand Farm", "Stand farming started!")
+            
+            local function GetMax(Item)
+                local Max = {
+                    ["Mysterious Arrow"] = 25, ["Rokakaka"] = 25,
+                    ["Diamond"] = 30, ["Gold Coin"] = 45, ["Pure Rokakaka"] = 10,
+                    ["Stone Mask"] = 10, ["Rib Cage of The Saint's Corpse"] = 10,
+                    ["Steel Ball"] = 10, ["Ancient Scroll"] = 10, ["Dio's Diary"] = 10,
+                    ["Caesar's Headband"] = 10, ["Christmas Present"] = 45,
+                    ["Quinton's Glove"] = 10, ["Lucky Arrow"] = 10
+                }
+                local gp = game:GetService("MarketplaceService")
+                local has2x = gp and gp:UserOwnsGamePassAsync(game.Players.LocalPlayer.UserId, 14597778)
+                if has2x then 
+                    for i,v in pairs(Max) do Max[i] = v * 2 end 
+                end
+                return Max[Item] or 999
+            end
+            
+            local function CountItem(Item)
+                local player = game.Players.LocalPlayer
+                local Backpack = player.Backpack
+                local Count = 0
+                for _, v in pairs(Backpack:GetChildren()) do 
+                    if v.Name == Item then Count = Count + 1 end 
+                end
+                local Char = player.Character
+                if Char and Char:FindFirstChildWhichIsA("Tool") and Char:FindFirstChildWhichIsA("Tool").Name == Item then 
+                    Count = Count + 1 
+                end
+                return Count
+            end
+
+            local function LearnWorthiness()
+                local player = game.Players.LocalPlayer
+                local Character = player.Character or player.CharacterAdded:Wait()
+                local remoteFunc = Character:FindFirstChild("RemoteFunction")
                 
-                local HRP = Util:GetHRP()
-                if HRP then HRP.CFrame = CFrame.new(-324, -32, 47) end
-                
-                if not Util:IsTaskRunning("SafeFarm") then
-                    Util:AddTask("SafeFarm", Util:GetPlayer().CharacterAdded:Connect(function(Char)
-                        task.wait(0.15)
-                        Char.PrimaryPart.CFrame = CFrame.new(-324, -32, 47)
-                    end))
+                if not remoteFunc then 
+                    notify("Stand Farm", "RemoteFunction not found, waiting...")
+                    return false 
                 end
                 
-                task.spawn(function()
-                    while standFarmRunning do
-                        task.wait()
-                        if Util:CountItem("Mysterious Arrow") == 0 or Util:CountItem("Rokakaka") == 0 then
-                            FarmItems({"Rokakaka", "Mysterious Arrow"})
-                        end
-                        
-                        if Util:GetState("Use Redeemed") and (Util:CountItem("Redeemed Mysterious Arrow") == 0 or Util:CountItem("Redeemed Rokakaka") == 0) then
-                            StandFarmSettings:Set("StandFarm_UseRedeemed", false)
-                        end
-                        
-                        if (Util:HasStand() and Util:FindTable("Stands", Util:CheckStand()) and standFarmRunning) or (Util:HasStand() and Util:GetState("Keep any shiny") and Util:HasShiny()) then
-                            if not Util:GetState("Waiting") then
-                                notify("Stand Farm", "You have the stand you wanted: " .. Util:CheckStand())
-                                Util:SetState("Waiting", true)
-                                standFarmRunning = false
-                                StandFarmSettings:Set("StandFarm_Enabled", false)
-                                break
-                            end
-                        else
-                            Util:SetState("Waiting", false)
-                        end
-                        
-                        if Util:HasStand() and not Util:FindTable("Stands", Util:CheckStand()) and standFarmRunning then
-                            Util:Stats()
-                            Util:UseRoka()
-                            repeat task.wait() until Util:GetCharacter() and Util:GetCharacter():FindFirstChild("RemoteEvent")
-                        end
-                        
-                        if not Util:HasStand() and standFarmRunning then
-                            Util:Stats()
-                            Util:UseArrow()
-                            repeat task.wait() until Util:HasStand()
-                        end
+                local worthinessSkills = {
+                    "Worthiness", "Worthiness II", "Worthiness III", 
+                    "Worthiness IV", "Worthiness V"
+                }
+                
+                for _, skill in pairs(worthinessSkills) do
+                    pcall(function()
+                        remoteFunc:InvokeServer("LearnSkill", {
+                            ["Skill"] = skill,
+                            ["SkillTreeType"] = "Character"
+                        })
+                    end)
+                    task.wait(0.1)
+                end
+                
+                return true
+            end
+            
+            local noclipEnabled = false
+            local noclipConn = nil
+            local function EnableNoclip()
+                if noclipEnabled then return end
+                local Character = game.Players.LocalPlayer.Character
+                if not Character then return end
+                noclipConn = game:GetService("RunService").Stepped:Connect(function()
+                    for _, p in pairs(Character:GetDescendants()) do
+                        if p:IsA("BasePart") then p.CanCollide = false end
                     end
                 end)
-            else
-                standFarmRunning = false
-                Util:DisconnectTask("SafeFarm")
-                notify("Stand Farm", "Stand farming stopped!")
+                noclipEnabled = true
             end
+            
+            local function DisableNoclip()
+                if noclipConn then noclipConn:Disconnect() end
+                noclipEnabled = false
+            end
+            
+            task.spawn(function()
+                local buyingCooldown = 0
+                local lastItemFarm = 0
+                local itemFarmDelay = 0.6
+                
+                while standFarmRunning do
+                    task.wait(0.5)
+
+                    local player = game.Players.LocalPlayer
+                    local Character = player.Character or player.CharacterAdded:Wait()
+                    local HRP = Character:FindFirstChild("HumanoidRootPart")
+                    if not HRP then continue end
+                    
+                    if not Character:FindFirstChild("WorthinessLearned") then
+                        LearnWorthiness()
+                        local marker = Instance.new("BoolValue")
+                        marker.Name = "WorthinessLearned"
+                        marker.Value = true
+                        marker.Parent = Character
+                    end
+                    
+                    local currentStand = player.PlayerStats.Stand.Value
+                    local currentShiny = Util:CheckShiny()
+                    
+                    if currentStand ~= "None" then
+                        local isTargetStand = Util:FindTable("Stands", currentStand)
+                        local isShiny = currentShiny ~= "None" and currentShiny ~= nil
+                        
+                        if keepAnyShiny and isShiny then
+                            notify("Stand Farm", "Got shiny stand: " .. currentStand .. " (" .. currentShiny .. ")!")
+                            standFarmRunning = false
+                            StandFarmSettings:Set("StandFarm_Enabled", false)
+                            DisableNoclip()
+                            break
+                        elseif isTargetStand and not keepAnyShiny then
+                            notify("Stand Farm", "Got desired stand: " .. currentStand)
+                            standFarmRunning = false
+                            StandFarmSettings:Set("StandFarm_Enabled", false)
+                            DisableNoclip()
+                            break
+                        elseif isTargetStand and isShiny and keepAnyShiny then
+                            notify("Stand Farm", "Got desired shiny: " .. currentStand .. " (" .. currentShiny .. ")!")
+                            standFarmRunning = false
+                            StandFarmSettings:Set("StandFarm_Enabled", false)
+                            DisableNoclip()
+                            break
+                        end
+                    end
+                    
+                    local arrowCount = CountItem("Mysterious Arrow")
+                    local rokaCount = CountItem("Rokakaka")
+                    local maxArrows = GetMax("Mysterious Arrow")
+                    local maxRokas = GetMax("Rokakaka")
+                    
+                    if currentStand ~= "None" then
+                        if rokaCount > 0 then                            
+                            local humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                            local roka = player.Backpack:FindFirstChild("Rokakaka") or Character:FindFirstChild("Rokakaka")
+                            
+                            if humanoid and roka then
+                                humanoid:EquipTool(roka)
+                                task.wait(0.5)
+                                
+                                for i = 1, 5 do
+                                    game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 8, 0, true, nil, 1)
+                                    task.wait(0.1)
+                                end
+                                
+                                task.wait(0.8)
+                                local dialogueGui = player.PlayerGui:FindFirstChild("DialogueGui")
+                                if dialogueGui then
+                                    local frame = dialogueGui:FindFirstChild("Frame")
+                                    if frame then
+                                        local options = frame:FindFirstChild("Options")
+                                        if options then
+                                            local option1 = options:FindFirstChild("Option1")
+                                            if option1 then
+                                                local textBtn = option1:FindFirstChild("TextButton")
+                                                if textBtn then
+                                                    for _, conn in pairs(getconnections(textBtn.MouseButton1Click)) do
+                                                        conn:Fire()
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                                
+                                player.CharacterAdded:Wait()
+                                task.wait(1)
+                            end
+                            continue
+                        else
+                        end
+                    end
+                    
+                    if currentStand == "None" and arrowCount > 0 then
+
+                        local humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                        local arrow = player.Backpack:FindFirstChild("Mysterious Arrow") or Character:FindFirstChild("Mysterious Arrow")
+                        
+                        if humanoid and arrow then
+                            humanoid:EquipTool(arrow)
+                            task.wait(0.5)
+                            
+                            for i = 1, 5 do
+                                game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 8, 0, true, nil, 1)
+                                task.wait(0.1)
+                            end
+                            
+                            task.wait(0.8)
+                            local dialogueGui = player.PlayerGui:FindFirstChild("DialogueGui")
+                            if dialogueGui then
+                                local frame = dialogueGui:FindFirstChild("Frame")
+                                if frame then
+                                    local options = frame:FindFirstChild("Options")
+                                    if options then
+                                        local option1 = options:FindFirstChild("Option1")
+                                        if option1 then
+                                            local textBtn = option1:FindFirstChild("TextButton")
+                                            if textBtn then
+                                                for _, conn in pairs(getconnections(textBtn.MouseButton1Click)) do
+                                                    conn:Fire()
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            task.wait(2)
+                            
+                            local newStand = player.PlayerStats.Stand.Value
+                            if newStand ~= "None" then
+                                local newShiny = Util:CheckShiny()
+                                local isTarget = Util:FindTable("Stands", newStand)
+                                local isShiny = newShiny ~= "None" and newShiny ~= nil
+                                
+                                if keepAnyShiny and isShiny then
+                                    notify("Stand Farm", "Got shiny: " .. newStand .. "!")
+                                    standFarmRunning = false
+                                    StandFarmSettings:Set("StandFarm_Enabled", false)
+                                    DisableNoclip()
+                                    break
+                                elseif isTarget and not keepAnyShiny then
+                                    notify("Stand Farm", "Got target: " .. newStand)
+                                    standFarmRunning = false
+                                    StandFarmSettings:Set("StandFarm_Enabled", false)
+                                    DisableNoclip()
+                                    break
+                                end
+                            end
+                            
+                            if player.Character ~= Character then
+                                player.CharacterAdded:Wait()
+                                task.wait(1)
+                            end
+                        end
+                        continue
+                    end
+                    
+                    local needArrow = arrowCount < maxArrows
+                    local needRoka = rokaCount < maxRokas
+                    
+                    if tick() - lastItemFarm < itemFarmDelay then
+                        task.wait(itemFarmDelay - (tick() - lastItemFarm))
+                    end
+                    
+                    if needArrow or needRoka then
+                        lastItemFarm = tick()
+                        local itemsFarmed = false
+                        
+                        local spawns = workspace:FindFirstChild("Item_Spawns") and workspace.Item_Spawns:FindFirstChild("Items")
+                        if spawns then
+                            for _, v in pairs(spawns:GetChildren()) do
+                                if not standFarmRunning then break end
+                                
+                                local prox = v:FindFirstChild("ProximityPrompt")
+                                local part = v:FindFirstChildOfClass("MeshPart") or v:FindFirstChild("Part") or v.PrimaryPart
+                                
+                                if prox and part and part.Transparency < 1 then
+                                    local itemName = prox.ObjectText
+                                    
+                                    if (itemName == "Mysterious Arrow" and CountItem("Mysterious Arrow") < maxArrows) or
+                                       (itemName == "Rokakaka" and CountItem("Rokakaka") < maxRokas) then
+                                        
+                                        itemsFarmed = true
+                                        notify("Stand Farm", "Farming " .. itemName .. " (" .. CountItem(itemName) .. "/" .. (itemName == "Mysterious Arrow" and maxArrows or maxRokas) .. ")")
+                                        
+                                        EnableNoclip()
+                                        
+                                        local oldCF = HRP.CFrame
+                                        
+                                        HRP.CFrame = part.CFrame + Vector3.new(0, 1, 0)
+                                        task.wait(0.3)
+                                        
+                                        local startTime = tick()
+                                        local collected = false
+                                        repeat
+                                            if v.Parent == workspace.Item_Spawns.Items then
+                                                fireproximityprompt(prox, 4)
+                                                task.wait(0.2)
+                                                if v.PrimaryPart then
+                                                    HRP.CFrame = v.PrimaryPart.CFrame + Vector3.new(0, 1, 0)
+                                                end
+                                            else
+                                                collected = true
+                                            end
+                                        until collected or tick() - startTime >= 4
+                                        
+                                        task.wait(0.3)
+                                        HRP.CFrame = oldCF
+                                        
+                                        arrowCount = CountItem("Mysterious Arrow")
+                                        rokaCount = CountItem("Rokakaka")
+                                        
+                                        task.wait(0.5)
+                                        
+                                        if arrowCount >= maxArrows and rokaCount >= maxRokas then
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if not itemsFarmed and arrowCount == 0 and rokaCount == 0 and tick() > buyingCooldown then
+                            local money = player.PlayerStats.Money.Value
+                            local remote = Character:FindFirstChild("RemoteEvent")
+                            
+                            if money >= 3250 and remote then
+                                notify("Stand Farm", "Buying items from shop...")
+                                
+                                remote:FireServer("PurchaseShopItem", {["ItemName"] = "1x Rokakaka"}, 1, 2)
+                                task.wait(0.8)
+                                
+                                remote:FireServer("PurchaseShopItem", {["ItemName"] = "1x Mysterious Arrow"}, 1, 2)
+                                task.wait(0.8)
+                                
+                                buyingCooldown = tick() + 5
+                            elseif money < 3250 then
+                                notify("Stand Farm", "Need more money to buy items!")
+                                task.wait(5)
+                            end
+                        elseif not itemsFarmed then
+                            notify("Stand Farm", "Waiting for items to spawn...")
+                            task.wait(30)
+                        end
+                    else
+                        notify("Stand Farm", "Waiting... (have items but can't use?)")
+                        task.wait(2)
+                    end
+                end
+                
+                DisableNoclip()
+            end)
+        else
+            standFarmRunning = false
+            notify("Stand Farm", "Stand farming stopped!")
         end
-    })
+    end
+})
     
     local standDropdown = StandFarmTab:Dropdown({
         Flag = "StandDropdown",
@@ -3760,14 +4137,6 @@ local function LoadStandFarmFeatures()
                 notify("Rib Farm", "Rib farming started!")
                 
                 local HRP = Util:GetHRP()
-                if HRP then HRP.CFrame = CFrame.new(-324, -32, 47) end
-                
-                if not Util:IsTaskRunning("SafeFarm") then
-                    Util:AddTask("SafeFarm", Util:GetPlayer().CharacterAdded:Connect(function(Char)
-                        task.wait(0.15)
-                        Char.PrimaryPart.CFrame = CFrame.new(-324, -32, 47)
-                    end))
-                end
                 
                 task.spawn(function()
                     while ribFarmRunning do
@@ -3813,14 +4182,6 @@ local function LoadStandFarmFeatures()
                 notify("Shiny Farm", "Shiny farming started!")
                 
                 local HRP = Util:GetHRP()
-                if HRP then HRP.CFrame = CFrame.new(-324, -32, 47) end
-                
-                if not Util:IsTaskRunning("SafeFarm") then
-                    Util:AddTask("SafeFarm", Util:GetPlayer().CharacterAdded:Connect(function(Char)
-                        task.wait(0.325)
-                        Char.PrimaryPart.CFrame = CFrame.new(-324, -32, 47)
-                    end))
-                end
                 
                 task.spawn(function()
                     while shinyFarmRunning do
@@ -3885,14 +4246,6 @@ local function LoadStandFarmFeatures()
                 notify("Rib Shiny Farm", "Rib shiny farming started!")
                 
                 local HRP = Util:GetHRP()
-                if HRP then HRP.CFrame = CFrame.new(-324, -32, 47) end
-                
-                if not Util:IsTaskRunning("SafeFarm") then
-                    Util:AddTask("SafeFarm", Util:GetPlayer().CharacterAdded:Connect(function(Char)
-                        task.wait(0.15)
-                        Char.PrimaryPart.CFrame = CFrame.new(-324, -32, 47)
-                    end))
-                end
                 
                 task.spawn(function()
                     while ribShinyFarmRunning do
@@ -3972,13 +4325,326 @@ local function LoadQuestFeatures()
     end
 
     local function EquipStand()
-        local Character = GetCharacter()
-        if Character and Character:FindFirstChild("RemoteFunction") and Character:FindFirstChild("SummonedStand") and not Character.SummonedStand.Value then
+    local Character = GetCharacter()
+    if not Character then return end
+    
+    local shouldEquip = getgenv().QuestMethod == "With Stand"
+    local hasStandSummoned = Character:FindFirstChild("SummonedStand") and Character.SummonedStand.Value
+    
+    if Character:FindFirstChild("RemoteFunction") then
+        if shouldEquip and not hasStandSummoned then
+            pcall(function()
+                Character.RemoteFunction:InvokeServer("ToggleStand", "Toggle")
+            end)
+        elseif not shouldEquip and hasStandSummoned then
             pcall(function()
                 Character.RemoteFunction:InvokeServer("ToggleStand", "Toggle")
             end)
         end
     end
+end
+
+local function HasStand()
+    local player = GetPlayer()
+    if player and player:FindFirstChild("PlayerStats") and player.PlayerStats:FindFirstChild("Stand") then
+        local standValue = player.PlayerStats.Stand.Value
+        if standValue ~= "None" and standValue ~= "" and standValue ~= nil then
+            return true
+        end
+    end
+    return false
+end
+
+local function CollectRokaArrow()    
+    local blacklistedStands = {
+        ["Six Pistols"] = true,
+        ["Hermit Purple"] = true,
+        ["Aerosmith"] = true,
+        ["Beach Boy"] = true,
+        ["Mr. President"] = true,
+        ["Mr President"] = true,
+        ["Anubis"] = true,
+        ["Tusk ACT 1"] = true,
+        ["Tusk Act 1"] = true,
+        ["Tusk act 1"] = true
+    }
+    
+    local function LearnWorthiness()
+        local Character = GetCharacter()
+        if not Character or not Character:FindFirstChild("RemoteFunction") then return end
+        
+        local worthinessSkills = {"Worthiness", "Worthiness II", "Worthiness III", "Worthiness IV", "Worthiness V"}
+        for _, skill in pairs(worthinessSkills) do
+            pcall(function()
+                Character.RemoteFunction:InvokeServer("LearnSkill", {
+                    ["Skill"] = skill,
+                    ["SkillTreeType"] = "Character"
+                })
+            end)
+            task.wait(0.1)
+        end
+    end
+    
+    local targetItems = {"Rokakaka", "Mysterious Arrow"}
+    local collected = {Rokakaka = false, ["Mysterious Arrow"] = false}
+    
+    local function CountItem(itemName)
+        local count = 0
+        local ply = GetPlayer()
+        if ply and ply:FindFirstChild("Backpack") then
+            for _, item in pairs(ply.Backpack:GetChildren()) do
+                if item.Name == itemName then count = count + 1 end
+            end
+        end
+        if ply and ply.Character then
+            for _, item in pairs(ply.Character:GetChildren()) do
+                if item.Name == itemName then count = count + 1 end
+            end
+        end
+        return count
+    end
+    
+    LearnWorthiness()
+    task.wait(0.5)
+    
+    while getgenv().QuestFarmEnabled and not (collected.Rokakaka and collected["Mysterious Arrow"]) do
+        local Character = GetCharacter()
+        local HRP = GetHRP()
+        if not Character or not HRP then task.wait(0.5) continue end
+        
+        if CountItem("Rokakaka") >= 1 then collected.Rokakaka = true end
+        if CountItem("Mysterious Arrow") >= 1 then collected["Mysterious Arrow"] = true end
+        
+        if collected.Rokakaka and collected["Mysterious Arrow"] then break end
+        
+        local spawns = workspace:FindFirstChild("Item_Spawns") and workspace.Item_Spawns:FindFirstChild("Items")
+        if spawns then
+            for _, v in pairs(spawns:GetChildren()) do
+                if not getgenv().QuestFarmEnabled then return false end
+                
+                local prox = v:FindFirstChild("ProximityPrompt")
+                local part = v:FindFirstChildOfClass("MeshPart") or v:FindFirstChild("Part") or v:FindFirstChild("PrimaryPart")
+                
+                if prox and part and part.Transparency < 1 then
+                    local itemName = prox.ObjectText
+                    if table.find(targetItems, itemName) and not collected[itemName] then
+                        
+                        local oldCF = HRP.CFrame
+                        HRP.CFrame = part.CFrame - Vector3.new(0, 3, 0)
+                        task.wait(0.2)
+                        
+                        local noclipConn = game:GetService("RunService").Stepped:Connect(function()
+                            for _, p in pairs(Character:GetDescendants()) do
+                                if p:IsA("BasePart") then p.CanCollide = false end
+                            end
+                        end)
+                        
+                        for i = 1, 5 do
+                            fireproximityprompt(prox, 0, true)
+                            task.wait(0.1)
+                        end
+                        
+                        noclipConn:Disconnect()
+                        HRP.CFrame = oldCF
+                        task.wait(0.3)
+                        break
+                    end
+                end
+            end
+        end
+        
+        if not (collected.Rokakaka and collected["Mysterious Arrow"]) then
+            local money = GetPlayer().PlayerStats.Money.Value
+            local remote = Character:FindFirstChild("RemoteEvent")
+            
+            if money >= 3250 and remote then
+                if not collected.Rokakaka then
+                    remote:FireServer("PurchaseShopItem", {["ItemName"] = "1x Rokakaka"}, 1, 2)
+                    task.wait(0.8)
+                end
+                if not collected["Mysterious Arrow"] then
+                    remote:FireServer("PurchaseShopItem", {["ItemName"] = "1x Mysterious Arrow"}, 1, 2)
+                    task.wait(0.8)
+                end
+            end
+        end
+        
+        task.wait(0.5)
+    end
+    
+    if collected.Rokakaka and collected["Mysterious Arrow"] then
+        
+        local maxAttempts = 100
+        local attempts = 0
+        
+        while getgenv().QuestFarmEnabled and attempts < maxAttempts do
+            attempts = attempts + 1
+            local player = GetPlayer()
+            if not player then task.wait(0.5) continue end
+            
+            local Character = GetCharacter()
+            if not Character then task.wait(0.5) continue end
+            
+            local currentStand = "None"
+            if player:FindFirstChild("PlayerStats") and player.PlayerStats:FindFirstChild("Stand") then
+                currentStand = player.PlayerStats.Stand.Value
+            end
+            
+            if currentStand ~= "None" then
+                notify("YBA Script", "Got stand: " .. currentStand .. " (checking if valid)...")
+                task.wait(0.5)
+                
+                if blacklistedStands[currentStand] then
+                    notify("YBA Script", "Got blacklisted stand: " .. currentStand .. " - Rokaka'ing...")
+                    
+                    local roka = player.Backpack:FindFirstChild("Rokakaka") or Character:FindFirstChild("Rokakaka")
+                    
+                    if not roka then
+                        notify("YBA Script", "No Rokakaka! Collecting more...")
+                        collected.Rokakaka = false
+                        collected["Mysterious Arrow"] = false
+                        break
+                    end
+                    
+                    local humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                    if humanoid and roka then
+                        humanoid:EquipTool(roka)
+                        task.wait(0.5)
+                        
+                        local remote = Character:FindFirstChild("RemoteEvent")
+                        if remote then
+                            remote:FireServer("UseItem", roka)
+                        end
+                        
+                        for i = 1, 10 do
+                            game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 8, 0, true, nil, 1)
+                            task.wait(0.1)
+                        end
+                        
+                        local dialogueWaitTime = 0
+                        local dialogueGui = nil
+                        while dialogueWaitTime < 3 do
+                            dialogueGui = player.PlayerGui:FindFirstChild("DialogueGui")
+                            if dialogueGui then break end
+                            task.wait(0.1)
+                            dialogueWaitTime = dialogueWaitTime + 0.1
+                        end
+                        
+                        if dialogueGui then
+                            task.wait(0.5)
+                            local options = dialogueGui:FindFirstChild("Options", true)
+                            if options then
+                                local option1 = options:FindFirstChild("Option1")
+                                if option1 then
+                                    local textBtn = option1:FindFirstChild("TextButton")
+                                    if textBtn then
+                                        for _, conn in pairs(getconnections(textBtn.MouseButton1Click)) do
+                                            conn:Fire()
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        
+                        player.CharacterAdded:Wait()
+                        task.wait(1.5)
+                        
+                        LearnWorthiness()
+                        task.wait(0.5)
+                    end
+                    continue
+                else
+                    task.wait(1)
+                    return true
+                end
+            end
+            
+            if currentStand == "None" then
+                local arrow = player.Backpack:FindFirstChild("Mysterious Arrow") or Character:FindFirstChild("Mysterious Arrow")
+                
+                if not arrow then
+                    notify("YBA Script", "No arrows! Collecting more...")
+                    collected.Rokakaka = false
+                    collected["Mysterious Arrow"] = false
+                    break
+                end
+                
+                local humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                if humanoid and arrow then
+                    humanoid:EquipTool(arrow)
+                    task.wait(0.5)
+                    
+                    local remote = Character:FindFirstChild("RemoteEvent")
+                    if remote then
+                        remote:FireServer("UseItem", arrow)
+                    end
+                    
+                    for i = 1, 10 do
+                        game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 8, 0, true, nil, 1)
+                        task.wait(0.1)
+                    end
+                    
+                    local dialogueWaitTime = 0
+                    local dialogueGui = nil
+                    while dialogueWaitTime < 3 do
+                        dialogueGui = player.PlayerGui:FindFirstChild("DialogueGui")
+                        if dialogueGui then break end
+                        task.wait(0.1)
+                        dialogueWaitTime = dialogueWaitTime + 0.1
+                    end
+                    
+                    if dialogueGui then
+                        task.wait(0.5)
+                        local options = dialogueGui:FindFirstChild("Options", true)
+                        if options then
+                            local option1 = options:FindFirstChild("Option1")
+                            if option1 then
+                                local textBtn = option1:FindFirstChild("TextButton")
+                                if textBtn then
+                                    for _, conn in pairs(getconnections(textBtn.MouseButton1Click)) do
+                                        conn:Fire()
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    task.wait(2)
+                    
+                    local newStand = player.PlayerStats.Stand.Value
+                    if newStand ~= "None" then
+                        if not blacklistedStands[newStand] then
+                            notify("YBA Script", "Good stand obtained: " .. newStand .. "! Triggering reset...")
+                            task.wait(1)
+                            return true
+                        end
+                    end
+                    
+                    if player.Character ~= Character then
+                        player.CharacterAdded:Wait()
+                        task.wait(1.5)
+                        LearnWorthiness()
+                        task.wait(0.5)
+                    end
+                end
+                continue
+            end
+            
+            task.wait(0.5)
+        end
+        
+        if attempts >= maxAttempts then
+            notify("YBA Script", "Max attempts reached, stopping stand farm.")
+            return false
+        end
+        
+        if not (collected.Rokakaka and collected["Mysterious Arrow"]) then
+            return false
+        end
+    end
+    
+    return false
+end
 
     local function UseMove(Move)
         local Character = GetCharacter()
@@ -4027,9 +4693,17 @@ local function LoadQuestFeatures()
 
             local Character = GetCharacter()
             if Character and Character:FindFirstChildWhichIsA("Humanoid") and Character:FindFirstChildWhichIsA("Humanoid").Health > 0 then
-                if GetPlayer().PlayerStats and GetPlayer().PlayerStats.Stand and GetPlayer().PlayerStats.Stand.Value ~= "None" then
-                    EquipStand()
-                end
+if getgenv().QuestMethod == "With Stand" then
+    if not HasStand() then
+        local success = CollectRokaArrow()
+        if not success then
+            return
+        end
+    end
+    EquipStand()
+else
+    EquipStand()
+end
 
                 if Character:FindFirstChild("FocusCam") == nil then
                     FocusCam = Instance.new("ObjectValue", Character)
@@ -4239,6 +4913,21 @@ local function LoadQuestFeatures()
         end
     })
 
+QuestFarmSection:Space()
+
+getgenv().QuestMethod = "With Stand"
+
+QuestFarmSection:Dropdown({
+    Flag = "QuestMethod",
+    Title = "Method",
+    Values = {"With Stand", "Without Stand"},
+    Value = "With Stand",
+    Callback = function(selected)
+        getgenv().QuestMethod = selected
+        notify("YBA Script", "Quest Method set to: " .. selected)
+    end
+})
+
     local function UpdateQuestStatus()
         pcall(function()
             if not getgenv().QuestFarmEnabled then
@@ -4258,139 +4947,417 @@ local function LoadQuestFeatures()
         end)
     end
 
-    QuestFarmSection:Toggle({
-        Flag = "QuestFarmEnabled",
-        Title = "Enable Quest Farm",
-        Default = false,
-        Callback = function(value)
-            getgenv().QuestFarmEnabled = value
-            if value then
-                notify("YBA Script", "Quest Farm started!")
-                getgenv().CompletedQuest = true
-                enableNoclip()
 
-                local questCompletedConn
-                if GetPlayer().PlayerGui and GetPlayer().PlayerGui:FindFirstChild("HUD") then
-                    local hud = GetPlayer().PlayerGui.HUD
-                    questCompletedConn = hud.ChildAdded:Connect(function(Child)
-                        if Child and Child.Name == "QuestCompleted" then
-                            getgenv().CompletedQuest = true
-                            pcall(function() questStatus:Update({ Title = "Status: Quest Completed!" }) end)
-                            notify("YBA Script", "Quest completed! Getting next one...")
-                        end
-                    end)
+local function GetPlayerLevel()
+    local player = GetPlayer()
+    if player and player:FindFirstChild("PlayerStats") and player.PlayerStats:FindFirstChild("Level") then
+        return player.PlayerStats.Level.Value
+    end
+    return 0
+end
+
+local function GetQuestLevelRequirement(questName)
+    if not questName then return 0 end
+    local levelReq = tonumber(questName:match("(%d+)"))
+    return levelReq or 0
+end
+
+local function GetBestAvailableQuest()
+    local playerLevel = GetPlayerLevel()
+    local bestQuest = nil
+    local highestReq = -1
+    
+    for _, questName in pairs(ParsedQuests) do
+        if questName ~= "No quests available" then
+            local levelReq = GetQuestLevelRequirement(questName)
+            if levelReq and levelReq <= playerLevel and levelReq > highestReq then
+                highestReq = levelReq
+                bestQuest = questName
+            end
+        end
+    end
+    return bestQuest
+end
+
+local function CanTakeQuest(questName)
+    local playerLevel = GetPlayerLevel()
+    local questLevel = GetQuestLevelRequirement(questName)
+    return playerLevel >= questLevel
+end
+
+
+QuestFarmSection:Toggle({
+    Flag = "QuestFarmEnabled",
+    Title = "Enable Quest Farm",
+    Default = false,
+    Callback = function(value)
+        getgenv().QuestFarmEnabled = value
+        if value then
+            notify("YBA Script", "Quest Farm started!")
+            getgenv().CompletedQuest = true
+            enableNoclip()
+            local function GetPlayerLevel()
+                local player = GetPlayer()
+                if player and player:FindFirstChild("PlayerStats") and player.PlayerStats:FindFirstChild("Level") then
+                    return player.PlayerStats.Level.Value
                 end
-
-                task.spawn(function()
-                    while getgenv().QuestFarmEnabled do
-                        local questName = getgenv().SelectedQuest
-                        UpdateQuestStatus()
-
-                        if not questName or questName == "" or questName == "No quests available" then
-                            task.wait(getgenv().QuestDelay)
-                            continue
+                return 0
+            end
+            
+            local function GetQuestLevelRequirement(questName)
+                if not questName then return 0 end
+                local levelReq = tonumber(questName:match("(%d+)"))
+                return levelReq or 0
+            end
+            
+            local function GetBestAvailableQuest()
+                local playerLevel = GetPlayerLevel()
+                local bestQuest = nil
+                local highestReq = -1
+                
+                for _, questName in pairs(ParsedQuests) do
+                    if questName ~= "No quests available" then
+                        local levelReq = GetQuestLevelRequirement(questName)
+                        if levelReq and levelReq <= playerLevel and levelReq > highestReq then
+                            highestReq = levelReq
+                            bestQuest = questName
                         end
-
-                        local questData = QuestInfo[questName]
-                        if not questData then
-                            pcall(function() questStatus:Update({ Title = "Status: Quest data not found" }) end)
-                            notify("YBA Script", "Quest data not found: " .. questName)
-                            task.wait(getgenv().QuestDelay)
-                            continue
+                    end
+                end
+                return bestQuest
+            end
+            
+            local function UpdateQuestDropdown(newQuest)
+                pcall(function()
+                    for _, element in pairs(QuestFarmSection:GetChildren() or {}) do
+                        if element.Flag == "SelectedQuest" or element.Title == "Select Quest" then
+                            if element.Set then
+                                element:Set(newQuest)
+                            elseif element.Update then
+                                element:Update({Value = newQuest})
+                            end
+                            break
                         end
+                    end
+                end)
+            end
+            
+            local selectedQuest = getgenv().SelectedQuest
+            local playerLevel = GetPlayerLevel()
+            local selectedQuestLevel = GetQuestLevelRequirement(selectedQuest)
+            
+            if selectedQuestLevel > playerLevel then
+                local bestQuest = GetBestAvailableQuest()
+                if bestQuest then
+                    getgenv().SelectedQuest = bestQuest
+                    UpdateQuestDropdown(bestQuest)
+                else
+                    notify("YBA Script", "WARNING: No quests available for level " .. playerLevel)
+                end
+            else
+            end
+            local function GetPlayerLevel()
+                local player = GetPlayer()
+                if player and player:FindFirstChild("PlayerStats") and player.PlayerStats:FindFirstChild("Level") then
+                    return player.PlayerStats.Level.Value
+                end
+                return 0
+            end
+            
+            local function GetQuestLevelRequirement(questName)
+                if not questName then return 0 end
+                local levelReq = tonumber(questName:match("(%d+)"))
+                return levelReq or 0
+            end
+            
+            local function GetBestAvailableQuest()
+                local playerLevel = GetPlayerLevel()
+                local bestQuest = nil
+                local highestReq = -1
+                
+                for _, questName in pairs(ParsedQuests) do
+                    if questName ~= "No quests available" then
+                        local levelReq = GetQuestLevelRequirement(questName)
+                        if levelReq and levelReq <= playerLevel and levelReq > highestReq then
+                            highestReq = levelReq
+                            bestQuest = questName
+                        end
+                    end
+                end
+                return bestQuest
+            end
+            
+            local function UpdateQuestDropdown(newQuest)
+                pcall(function()
+                    for _, element in pairs(QuestFarmSection:GetChildren() or {}) do
+                        if element.Flag == "SelectedQuest" or element.Title == "Select Quest" then
+                            if element.Set then
+                                element:Set(newQuest)
+                            elseif element.Update then
+                                element:Update({Value = newQuest})
+                            end
+                            break
+                        end
+                    end
+                end)
+            end
+            
+            local currentQuest = getgenv().SelectedQuest
+            local playerLevel = GetPlayerLevel()
+            local questLevel = GetQuestLevelRequirement(currentQuest)
+            
+            if questLevel > playerLevel then
+                local bestQuest = GetBestAvailableQuest()
+                if bestQuest then
+                    getgenv().SelectedQuest = bestQuest
+                    UpdateQuestDropdown(bestQuest)
+                    notify("YBA Script", "Level " .. playerLevel .. " too low for " .. currentQuest .. ". Auto-switched to: " .. bestQuest)
+                else
+                    notify("YBA Script", "WARNING: No quests available for level " .. playerLevel)
+                end
+            end
 
-                        if getgenv().CompletedQuest then
-                            pcall(function() questStatus:Update({ Title = "Status: Taking quest..." }) end)
-                            local questNPC = workspace:FindFirstChild("Dialogues") and workspace.Dialogues:FindFirstChild(questName)
-                            if questNPC then
-                                local ok = false
-                                pcall(function() ok = GetQuest(questNPC) end)
-                                if ok then
-                                    getgenv().CompletedQuest = false
-                                    pcall(UpdateQuestStatus)
-                                    task.wait(getgenv().QuestDelay)
-                                else
-                                    pcall(function() questStatus:Update({ Title = "Status: Failed to take quest, waiting..." }) end)
-                                    task.wait(getgenv().QuestDelay)
+            local questCompletedConn
+            if GetPlayer().PlayerGui and GetPlayer().PlayerGui:FindFirstChild("HUD") then
+                local hud = GetPlayer().PlayerGui.HUD
+                questCompletedConn = hud.ChildAdded:Connect(function(Child)
+                    if Child and Child.Name == "QuestCompleted" then
+                        getgenv().CompletedQuest = true
+                        pcall(function() questStatus:Update({ Title = "Status: Quest Completed!" }) end)
+                        notify("YBA Script", "Quest completed! Getting next one...")
+                    end
+                end)
+            end
+
+            task.spawn(function()
+                while getgenv().QuestFarmEnabled do
+                    local autoSwitchOnLevelUp = false
+                    
+                    if autoSwitchOnLevelUp then
+                        local playerLevel = GetPlayerLevel()
+                        local currentQuest = getgenv().SelectedQuest
+                        local targetQuestLevel = GetQuestLevelRequirement(currentQuest)
+                        local bestQuest = GetBestAvailableQuest()
+                        
+                        if bestQuest and bestQuest ~= currentQuest then
+                            local bestQuestLevel = GetQuestLevelRequirement(bestQuest)
+                            if bestQuestLevel > targetQuestLevel and bestQuestLevel > selectedQuestLevel then
+                                getgenv().SelectedQuest = bestQuest
+                                UpdateQuestDropdown(bestQuest)
+                                getgenv().CompletedQuest = true
+                                notify("YBA Script", "Leveled up! Switching to: " .. bestQuest)
+                                task.wait(0.5)
+                            end
+                        end
+                    end
+                    local playerLevel = GetPlayerLevel()
+                    local selectedQuest = getgenv().SelectedQuest
+                    
+                    if selectedQuest and selectedQuest ~= "" and selectedQuest ~= "No quests available" then
+                        local selectedLevel = GetQuestLevelRequirement(selectedQuest)
+                        
+                        if selectedLevel > playerLevel then
+                            local bestQuest = GetBestAvailableQuest()
+                            if bestQuest and bestQuest ~= selectedQuest then
+                                notify("YBA Script", "Level " .. playerLevel .. " is not enough for " .. selectedQuest .. " (Req: " .. selectedLevel .. "). Switching to: " .. bestQuest)
+                                getgenv().SelectedQuest = bestQuest
+                                pcall(function()
+                                    local dropdown = QuestFarmSection:FindFirstChild("SelectedQuest")
+                                    if dropdown and dropdown.Set then
+                                        dropdown:Set(bestQuest)
+                                    end
+                                end)
+                            elseif not bestQuest then
+                                notify("YBA Script", "Level " .. playerLevel .. " is not enough for " .. selectedQuest .. ". No available quests found!")
+                                task.wait(3)
+                                continue
+                            end
+                        end
+                    end
+                    
+                    local questName = getgenv().SelectedQuest
+                    
+                    if getgenv().QuestMethod == "With Stand" then
+                        if playerLevel < 3 then
+                            if HasStand() then
+                                notify("YBA Script", "Level " .. playerLevel .. ": Removing stand to farm faster...")
+                                local roka = GetPlayer().Backpack:FindFirstChild("Rokakaka") or GetCharacter():FindFirstChild("Rokakaka")
+                                if roka then
+                                    local humanoid = GetCharacter():FindFirstChildWhichIsA("Humanoid")
+                                    if humanoid then
+                                        humanoid:EquipTool(roka)
+                                        task.wait(0.5)
+                                        local remote = GetCharacter():FindFirstChild("RemoteEvent")
+                                        if remote then
+                                            remote:FireServer("UseItem", roka)
+                                        end
+                                        for i = 1, 10 do
+                                            game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 8, 0, true, nil, 1)
+                                            task.wait(0.1)
+                                        end
+                                    end
                                 end
+                                GetPlayer().CharacterAdded:Wait()
+                                task.wait(1)
+                            end
+                            EquipStand()
+                            
+                        elseif playerLevel >= 3 and not HasStand() then
+                            local success = CollectRokaArrow()
+                            if not success then
+                                task.wait(getgenv().QuestDelay)
+                                continue
                             else
-                                pcall(function() questStatus:Update({ Title = "Status: Quest NPC not found" }) end)
+                                task.wait(1)
+                                local character = GetCharacter()
+                                local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+                                if humanoid then
+                                    humanoid.Health = 0
+                                end
+                                local player = GetPlayer()
+                                player.CharacterAdded:Wait()
+                                task.wait(2)
+                                local newStand = player.PlayerStats.Stand.Value
+                                notify("YBA Script", "Respawned with stand: " .. newStand)
+                                EquipStand()
+                                task.wait(1)
+                            end
+                        elseif playerLevel >= 3 and HasStand() then
+                            EquipStand()
+                        end
+                    else
+                        EquipStand()
+                    end
+                    
+                                        UpdateQuestStatus()
+
+                    if not questName or questName == "" or questName == "No quests available" then
+                        task.wait(getgenv().QuestDelay)
+                        continue
+                    end
+
+                    local questData = QuestInfo[questName]
+                    if not questData then
+                        pcall(function() questStatus:Update({ Title = "Status: Quest data not found" }) end)
+                        notify("YBA Script", "Quest data not found: " .. questName)
+                        task.wait(getgenv().QuestDelay)
+                        continue
+                    end
+
+                    if getgenv().QuestMethod == "With Stand" and playerLevel >= 3 and not HasStand() and not getgenv().GettingStand then
+                        getgenv().GettingStand = true
+                        notify("YBA Script", "Level " .. playerLevel .. " reached! Obtaining stand...")
+                        
+                        local success = CollectRokaArrow()
+                        if success then
+                            notify("YBA Script", "Stand obtained! Resuming quest farming...")
+                            getgenv().CompletedQuest = true
+                        else
+                            notify("YBA Script", "Failed to get stand, retrying...")
+                        end
+                        getgenv().GettingStand = false
+                        task.wait(1)
+                        continue
+                    end
+
+                    if getgenv().CompletedQuest then
+                        pcall(function() questStatus:Update({ Title = "Status: Taking quest..." }) end)
+                        local questNPC = workspace:FindFirstChild("Dialogues") and workspace.Dialogues:FindFirstChild(questName)
+                        if questNPC then
+                            local ok = false
+                            pcall(function() ok = GetQuest(questNPC) end)
+                            if ok then
+                                getgenv().CompletedQuest = false
+                                pcall(UpdateQuestStatus)
+                                task.wait(getgenv().QuestDelay)
+                            else
+                                pcall(function() questStatus:Update({ Title = "Status: Failed to take quest, waiting..." }) end)
                                 task.wait(getgenv().QuestDelay)
                             end
                         else
-                            if questData.Enemy then
-                                pcall(function() questStatus:Update({ Title = "Status: Farming " .. questData.Enemy }) end)
-                                local enemyName = questData.Enemy
-                                local living = workspace:FindFirstChild("Living")
-                                if living then
-                                    local doneThisCycle = false
-                                    for _, v in pairs(living:GetChildren()) do
-                                        if not getgenv().QuestFarmEnabled then break end
-                                        if v.Name == enemyName and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Health") and v.Health.Value > 0 then
-                                            local success, err = pcall(function() KillEnemy(v) end)
-                                            if not success then warn("Quest Farm Error:", err) end
-                                            doneThisCycle = true
-                                            task.wait(math.max(0.05, getgenv().QuestDelay))
+                            pcall(function() questStatus:Update({ Title = "Status: Quest NPC not found" }) end)
+                            task.wait(getgenv().QuestDelay)
+                        end
+                    else
+                        if questData.Enemy then
+                            pcall(function() questStatus:Update({ Title = "Status: Farming " .. questData.Enemy .. " (Lvl " .. playerLevel .. ")" }) end)
+                            local enemyName = questData.Enemy
+                            local living = workspace:FindFirstChild("Living")
+                            if living then
+                                local doneThisCycle = false
+                                for _, v in pairs(living:GetChildren()) do
+                                    if not getgenv().QuestFarmEnabled then break end
+                                    if v.Name == enemyName and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Health") and v.Health.Value > 0 then
+                                        local currentLvl = GetPlayerLevel()
+                                        if currentLvl >= 3 and not HasStand() and getgenv().QuestMethod == "With Stand" then
+                                            notify("YBA Script", "Level 3 reached! Breaking to get stand...")
+                                            break
                                         end
+                                        
+                                        local success, err = pcall(function() KillEnemy(v) end)
+                                        if not success then warn("Quest Farm Error:", err) end
+                                        doneThisCycle = true
+                                        task.wait(math.max(0.05, getgenv().QuestDelay))
                                     end
-                                    if not doneThisCycle then
-                                        task.wait(getgenv().QuestDelay)
-                                    end
-                                else
+                                end
+                                if not doneThisCycle then
                                     task.wait(getgenv().QuestDelay)
                                 end
-                            elseif questData.Item then
-                                pcall(function() questStatus:Update({ Title = "Status: Collecting " .. questData.Item }) end)
-                                local itemName = questData.Item
-                                local requiredAmount = questData.Amount or 1
-                                local function CountItems()
-                                    local current = 0
-                                    local ply = GetPlayer()
-                                    if ply then
-                                        if ply:FindFirstChild("Backpack") then
-                                            for _, it in pairs(ply.Backpack:GetChildren()) do
-                                                if it.Name == itemName then current = current + 1 end
-                                            end
-                                        end
-                                        if ply.Character then
-                                            for _, it in pairs(ply.Character:GetChildren()) do
-                                                if it.Name == itemName then current = current + 1 end
-                                            end
+                            else
+                                task.wait(getgenv().QuestDelay)
+                            end
+                        elseif questData.Item then
+                            pcall(function() questStatus:Update({ Title = "Status: Collecting " .. questData.Item }) end)
+                            local itemName = questData.Item
+                            local requiredAmount = questData.Amount or 1
+                            local function CountItems()
+                                local current = 0
+                                local ply = GetPlayer()
+                                if ply then
+                                    if ply:FindFirstChild("Backpack") then
+                                        for _, it in pairs(ply.Backpack:GetChildren()) do
+                                            if it.Name == itemName then current = current + 1 end
                                         end
                                     end
-                                    return current
+                                    if ply.Character then
+                                        for _, it in pairs(ply.Character:GetChildren()) do
+                                            if it.Name == itemName then current = current + 1 end
+                                        end
+                                    end
                                 end
+                                return current
+                            end
 
-                                if CountItems() >= requiredAmount then
-                                    getgenv().CompletedQuest = true
-                                    pcall(function() questStatus:Update({ Title = "Status: Item requirement met" }) end)
-                                else
-                                    local spawns = workspace:FindFirstChild("Item_Spawns") and workspace.Item_Spawns:FindFirstChild("Items")
-                                    if spawns then
-                                        for _, v in pairs(spawns:GetChildren()) do
-                                            if not getgenv().QuestFarmEnabled then break end
-                                            local prox = v:FindFirstChild("ProximityPrompt")
-                                            if prox and prox.ObjectText == itemName and v:FindFirstChild("PrimaryPart") then
-                                                local success, err = pcall(function()
-                                                    local Character = GetCharacter()
-                                                    local HRP = GetHRP()
-                                                    if HRP and v.PrimaryPart then
-                                                        local OldCF = HRP.CFrame
-                                                        HRP.CFrame = v.PrimaryPart.CFrame - Vector3.new(0, 10, 0)
-                                                        task.wait(math.max(0.05, getgenv().QuestDelay))
-                                                        fireproximityprompt(prox, 0, true)
-                                                        task.wait(math.max(0.05, getgenv().QuestDelay))
-                                                        HRP.CFrame = OldCF
-                                                    end
-                                                end)
-                                                if not success then warn("Item collect error:", err) end
-                                                task.wait(math.max(0.05, getgenv().QuestDelay))
-                                            end
+                            if CountItems() >= requiredAmount then
+                                getgenv().CompletedQuest = true
+                                pcall(function() questStatus:Update({ Title = "Status: Item requirement met" }) end)
+                            else
+                                local spawns = workspace:FindFirstChild("Item_Spawns") and workspace.Item_Spawns:FindFirstChild("Items")
+                                if spawns then
+                                    for _, v in pairs(spawns:GetChildren()) do
+                                        if not getgenv().QuestFarmEnabled then break end
+                                        local prox = v:FindFirstChild("ProximityPrompt")
+                                        if prox and prox.ObjectText == itemName and v:FindFirstChild("PrimaryPart") then
+                                            local success, err = pcall(function()
+                                                local Character = GetCharacter()
+                                                local HRP = GetHRP()
+                                                if HRP and v.PrimaryPart then
+                                                    local OldCF = HRP.CFrame
+                                                    HRP.CFrame = v.PrimaryPart.CFrame - Vector3.new(0, 10, 0)
+                                                    task.wait(math.max(0.05, getgenv().QuestDelay))
+                                                    fireproximityprompt(prox, 0, true)
+                                                    task.wait(math.max(0.05, getgenv().QuestDelay))
+                                                    HRP.CFrame = OldCF
+                                                end
+                                            end)
+                                            if not success then warn("Item collect error:", err) end
+                                            task.wait(math.max(0.05, getgenv().QuestDelay))
                                         end
                                     end
                                 end
                             end
                         end
+                    end
 
                         task.wait(getgenv().QuestDelay)
                     end
@@ -4458,35 +5425,6 @@ QuestFarmSection:Toggle({
         end
     end
 })
-
-QuestFarmSection:Space()
-local infoLabel = QuestFarmSection:Section({
-    Title = "Level: -- | Pres: -- | Stand: -- | $--",
-    TextSize = 16,
-    TextTransparency = 0.3
-})
-
-spawn(function()
-    while true do
-        wait(1)
-        pcall(function()
-            local ps = player:FindFirstChild("PlayerStats")
-            if ps then
-                local lv = ps:FindFirstChild("Level")
-                local pr = ps:FindFirstChild("Prestige")
-                local st = ps:FindFirstChild("Stand")
-                local mn = ps:FindFirstChild("Money")
-                
-                local level = lv and lv.Value or "?"
-                local pres = pr and pr.Value or "?"
-                local stand = st and st.Value or "None"
-                local money = mn and mn.Value or "?"
-                
-                infoLabel:Update({Title = "Level: " .. level .. " | Pres: " .. pres .. " | " .. stand .. " | $" .. money})
-            end
-        end)
-    end
-end)
 
     local NpcFarmSection = QuestTab:Section({ Title = "NPC Farm" })
 
