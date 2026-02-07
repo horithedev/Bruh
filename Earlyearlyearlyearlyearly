@@ -5217,7 +5217,6 @@ QuestFarmSection:Toggle({
                                 player.CharacterAdded:Wait()
                                 task.wait(2)
                                 local newStand = player.PlayerStats.Stand.Value
-                                notify("YBA Script", "Respawned with stand: " .. newStand)
                                 EquipStand()
                                 task.wait(1)
                             end
