@@ -4614,7 +4614,6 @@ local function CollectRokaArrow()
                     local newStand = player.PlayerStats.Stand.Value
                     if newStand ~= "None" then
                         if not blacklistedStands[newStand] then
-                            notify("YBA Script", "Good stand obtained: " .. newStand .. "! Triggering reset...")
                             task.wait(1)
                             return true
                         end
