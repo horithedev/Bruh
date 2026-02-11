@@ -16,7 +16,7 @@ WindUI:Popup({
     Buttons = {
         {
             Title = "Ok",
-            Icon = "cat",
+            Icon = "rbxthumb://type=Asset&id=10670510726&w=150&h=150",
         }
     }
 })
