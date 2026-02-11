@@ -333,6 +333,10 @@ AboutSection:Paragraph({ Title = "@ErasedDiablo", Desc = "Co-Owner-Dev", TextSiz
 
 AboutSection:Paragraph({ Title = "@Gaxhlol", Desc = "Main.Dev-OG", TextSize = 16 })
 
+AboutSection:Paragraph({ Title = "@Kaz", Desc = "Dev/Helper-Quited", TextSize = 14 })
+
+AboutSection:Paragraph({ Title = "@Findingwaysto****", Desc = "Dev/Helper-Quited", TextSize = 14 })
+
 AboutSection:Paragraph({ Title = "UI Library", Desc = "WindUI by Footagesus - best ui lib fr", TextSize = 14 })
 local FarmingTab = Window:Tab({ Title = "Item Farming", Icon = "skull" })
 local StandFarmTab = Window:Tab({ Title = "Stand Farm", Icon = "sword" })
