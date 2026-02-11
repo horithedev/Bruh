@@ -4518,7 +4518,7 @@ local function CollectRokaArrow()
         ["Aerosmith"] = true,
         ["Beach Boy"] = true,
         ["Mr. President"] = true,
-        ["Mr President"] = true,
+        ["White Album"] = true,
         ["Anubis"] = true,
         ["Tusk ACT 1"] = true,
         ["Tusk Act 1"] = true,
@@ -4647,7 +4647,6 @@ local function CollectRokaArrow()
             end
             
             if currentStand ~= "None" then
-                notify("YBA Script", "Got stand: " .. currentStand .. " (checking if valid)...")
                 task.wait(0.5)
                 
                 if blacklistedStands[currentStand] then
@@ -4770,7 +4769,6 @@ local function CollectRokaArrow()
                     local newStand = player.PlayerStats.Stand.Value
                     if newStand ~= "None" then
                         if not blacklistedStands[newStand] then
-                            notify("YBA Script", "stand obtained: " .. newStand .. "! Farming...")
                             task.wait(1)
                             return true
                         end
@@ -5327,7 +5325,6 @@ end
                 if bestQuest then
                     getgenv().SelectedQuest = bestQuest
                     UpdateQuestDropdown(bestQuest)
-                    notify("YBA Script", "Level " .. playerLevel .. " too low for " .. currentQuest .. ". Auto-switched to: " .. bestQuest)
                 else
                     notify("YBA Script", "WARNING: No quests available for level " .. playerLevel)
                 end
@@ -5434,7 +5431,6 @@ end
                                 player.CharacterAdded:Wait()
                                 task.wait(2)
                                 local newStand = player.PlayerStats.Stand.Value
-                                notify("YBA Script", "Respawned with stand: " .. newStand)
                                 EquipStand()
                                 task.wait(1)
                             end
