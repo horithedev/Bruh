@@ -2993,6 +2993,52 @@ ConfigTab:Dropdown({
     end
 })
 ConfigTab:Space()
+
+-- Webhook UI Toggle
+local webhookUIToggle = ConfigTab:Toggle({
+    Flag = "WebhookUI",
+    Title = "Open Webhook UI",
+    Default = false,
+    Callback = function(value)
+        if value then
+            -- Enable webhook UI
+            local success, result = pcall(function()
+                return loadstring(game:HttpGet("https://raw.githubusercontent.com/horithedev/Bruh/refs/heads/main/Webhook"))()
+            end)
+            
+            if success then
+                notify("YBA Script", "Webhook UI enabled!")
+            else
+                notify("YBA Script", "Failed to load Webhook UI: " .. tostring(result))
+                -- Reset toggle if failed
+                webhookUIToggle:Set(false)
+            end
+        else
+            -- Disable webhook UI
+            pcall(function()
+                if getgenv().WebhookUICleanup then
+                    getgenv().WebhookUICleanup()
+                end
+            end)
+            
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                if player and player.PlayerGui then
+                    local commonNames = {"WebhookUI", "WebhookGui", "Webhook", "BruhUI"}
+                    for _, name in pairs(commonNames) do
+                        local gui = player.PlayerGui:FindFirstChild(name)
+                        if gui then
+                            gui:Destroy()
+                        end
+                    end
+                end
+            end)
+            
+            notify("YBA Script", "Webhook UI disabled!")
+        end
+    end
+})
+ConfigTab:Space()
 ConfigTab:Keybind({
         Flag = "KeybindTest",
         Title = "Keybind",
