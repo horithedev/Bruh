@@ -1,0 +1,441 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local BUG_REPORT_WEBHOOK = "https://discord.com/api/webhooks/1471767811411148965/NzrhNh-PMV340rqWCwLL_KS23_50ntWAVyKongObjLGN2N-7K_ocGUBVHkT2Pr9R5SYv"
+local SUGGESTION_WEBHOOK = "https://discord.com/api/webhooks/1471769196651089952/jRHmfpumhRMJXobxPLI-uhWHhtQYOPuQnUlZplGk1ANBbQ0atvMURSrjvJkPIdTpskWF"
+
+local REMOTE_NAME = "WebhookSubmitEvent"
+local remote = ReplicatedStorage:FindFirstChild(REMOTE_NAME)
+
+local player = Players.LocalPlayer
+local playerName = player and player.Name or "Unknown"
+local playerId = tostring(player and player.UserId or 0)
+
+local function try_syn_request(url, jsonBody)
+    if type(syn) == "table" and type(syn.request) == "function" then
+        local ok, res = pcall(function()
+            return syn.request({Url = url, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = jsonBody})
+        end)
+        if not ok then return false, tostring(res) end
+        local code = res and (res.Status or res.StatusCode or res.status) or nil
+        if code == 200 or code == 204 or code == 201 then return true, "OK (syn.request)" end
+        return false, ("HTTP %s (syn.request)"):format(tostring(code or "nil"))
+    end
+    return false, "no syn.request"
+end
+
+local function try_http_request_variants(url, jsonBody)
+    if type(http) == "table" and type(http.request) == "function" then
+        local ok, res = pcall(function()
+            return http.request({Url = url, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = jsonBody})
+        end)
+        if not ok then return false, tostring(res) end
+        if type(res) == "table" and (res.StatusCode == 200 or res.StatusCode == 204 or res.StatusCode == 201 or res.Success) then
+            return true, "OK (http.request)"
+        end
+        return false, ("HTTP %s (http.request)"):format(tostring(res and (res.StatusCode or res.Success) or "nil"))
+    end
+
+    if type(http_request) == "function" then
+        local ok, res = pcall(function()
+            return http_request({Url = url, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = jsonBody})
+        end)
+        if not ok then return false, tostring(res) end
+        if type(res) == "table" and (res.StatusCode == 200 or res.StatusCode == 204 or res.StatusCode == 201 or res.Success) then
+            return true, "OK (http_request)"
+        end
+        return false, ("HTTP %s (http_request)"):format(tostring(res and (res.StatusCode or res.Success) or "nil"))
+    end
+
+    return false, "no http.request/http_request"
+end
+
+local function try_old_request(url, jsonBody)
+    if type(request) == "function" then
+        local ok, res = pcall(function()
+            return request({Url = url, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = jsonBody})
+        end)
+        if not ok then return false, tostring(res) end
+        if type(res) == "table" and (res.StatusCode == 200 or res.StatusCode == 204 or res.StatusCode == 201 or res.Success) then
+            return true, "OK (request)"
+        end
+        return false, ("HTTP %s (request)"):format(tostring(res and (res.StatusCode or res.Success) or "nil"))
+    end
+    return false, "no request"
+end
+
+local function try_httpservice_post(url, jsonBody)
+    local ok, res = pcall(function()
+        return HttpService:PostAsync(url, jsonBody, Enum.HttpContentType.ApplicationJson)
+    end)
+    if ok then
+        return true, "OK (HttpService:PostAsync)"
+    end
+    return false, tostring(res)
+end
+
+local function postToWebhook(url, payloadTable)
+    local ok, msg
+    local jsonBody = HttpService:JSONEncode(payloadTable)
+
+    ok, msg = try_syn_request(url, jsonBody)
+    if ok then return true, msg end
+
+    ok, msg = try_http_request_variants(url, jsonBody)
+    if ok then return true, msg end
+
+    ok, msg = try_old_request(url, jsonBody)
+    if ok then return true, msg end
+
+    ok, msg = try_httpservice_post(url, jsonBody)
+    if ok then return true, msg end
+
+    return false, ("All methods failed. Last: %s"):format(tostring(msg))
+end
+
+local function sanitize(s)
+    s = tostring(s or "")
+    s = s:gsub("`", "'")
+    if #s > 1900 then
+        return s:sub(1, 1900) .. " (truncated)"
+    end
+    return s
+end
+
+local function nowString()
+    return os.date("%Y-%m-%d %H:%M:%S UTC")
+end
+
+local function makeEmbedPayload(title, description, color)
+    return {
+        username = "WebhookUI",
+        embeds = {
+            {
+                title = title,
+                description = description,
+                color = color or 3447003,
+                fields = {
+                    { name = "Player", value = playerName, inline = true },
+                    { name = "UserId", value = playerId, inline = true },
+                    { name = "Time", value = nowString(), inline = false },
+                }
+            }
+        }
+    }
+end
+
+local guiParent
+if player and player:FindFirstChild("PlayerGui") then
+    guiParent = player.PlayerGui
+else
+    guiParent = game:GetService("CoreGui")
+end
+
+local existing = guiParent:FindFirstChild("WebhookUI")
+if existing then existing:Destroy() end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WebhookUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = guiParent
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 500, 0, 600)
+mainFrame.Position = UDim2.new(0.5, -250, 0.5, -300)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+mainFrame.Active = true
+
+local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0,12); corner.Parent = mainFrame
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(30,30,45)), ColorSequenceKeypoint.new(1, Color3.fromRGB(20,20,30))})
+gradient.Parent = mainFrame
+
+local title = Instance.new("TextLabel")
+title.Name = "Title"; title.Size = UDim2.new(1,0,0,50); title.Position = UDim2.new(0,0,0,10)
+title.BackgroundTransparency = 1; title.Text = "WEBHOOK SYSTEM"; title.TextColor3 = Color3.fromRGB(0,255,255)
+title.TextSize = 28; title.Font = Enum.Font.GothamBold; title.Parent = mainFrame
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Name = "Subtitle"; subtitle.Size = UDim2.new(1,0,0,20); subtitle.Position = UDim2.new(0,0,0,45)
+subtitle.BackgroundTransparency = 1; subtitle.Text = "Bug Reports & Suggestions"
+subtitle.TextColor3 = Color3.fromRGB(150,150,170); subtitle.TextSize = 14; subtitle.Font = Enum.Font.Gotham
+subtitle.Parent = mainFrame
+
+local function createInputField(parent, name, placeholder, pos, size, multiline)
+    local frame = Instance.new("Frame")
+    frame.Name = name.."Frame"
+    frame.Size = size or UDim2.new(1, -20, 0, 40)
+    frame.Position = pos
+    frame.BackgroundColor3 = Color3.fromRGB(45,45,65)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local frameCorner = Instance.new("UICorner"); frameCorner.CornerRadius = UDim.new(0,8); frameCorner.Parent = frame
+
+    local textBox = Instance.new("TextBox")
+    textBox.Name = name.."Input"
+    textBox.Size = UDim2.new(1, -20, 1, -10)
+    textBox.Position = UDim2.new(0, 10, 0, 5)
+    textBox.BackgroundTransparency = 1
+    textBox.Text = ""
+    textBox.PlaceholderText = placeholder or ""
+    textBox.TextColor3 = Color3.fromRGB(255,255,255)
+    textBox.PlaceholderColor3 = Color3.fromRGB(120,120,140)
+    textBox.TextSize = 14
+    textBox.Font = Enum.Font.Gotham
+    textBox.ClearTextOnFocus = false
+    textBox.MultiLine = multiline or false
+    textBox.TextWrapped = multiline or false
+    textBox.TextXAlignment = Enum.TextXAlignment.Left
+    textBox.TextYAlignment = multiline and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+    textBox.Parent = frame
+
+    return textBox
+end
+
+local function createLabel(parent, text, pos)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 20)
+    label.Position = pos
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(0,255,255)
+    label.TextSize = 12
+    label.Font = Enum.Font.GothamBold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = parent
+    return label
+end
+
+local tabFrame = Instance.new("Frame")
+tabFrame.Name = "TabFrame"; tabFrame.Size = UDim2.new(1, -40, 0, 40); tabFrame.Position = UDim2.new(0,20,0,80); tabFrame.BackgroundTransparency = 1; tabFrame.Parent = mainFrame
+
+local bugTab = Instance.new("TextButton")
+bugTab.Name = "BugTab"; bugTab.Size = UDim2.new(0.32,0,1,0); bugTab.Position = UDim2.new(0,0,0,0)
+bugTab.BackgroundColor3 = Color3.fromRGB(0,255,255); bugTab.Text = "🐛 BUG REPORT"; bugTab.TextColor3 = Color3.fromRGB(0,0,0); bugTab.TextSize = 14; bugTab.Font = Enum.Font.GothamBold; bugTab.Parent = tabFrame
+local suggestTab = Instance.new("TextButton")
+suggestTab.Name = "SuggestTab"; suggestTab.Size = UDim2.new(0.32,0,1,0); suggestTab.Position = UDim2.new(0.34,0,0,0)
+suggestTab.BackgroundColor3 = Color3.fromRGB(50,50,70); suggestTab.Text = "💡 SUGGESTION"; suggestTab.TextColor3 = Color3.fromRGB(255,255,255); suggestTab.TextSize = 14; suggestTab.Font = Enum.Font.GothamBold; suggestTab.Parent = tabFrame
+local aboutTab = Instance.new("TextButton")
+aboutTab.Name = "AboutTab"; aboutTab.Size = UDim2.new(0.32,0,1,0); aboutTab.Position = UDim2.new(0.68,0,0,0)
+aboutTab.BackgroundColor3 = Color3.fromRGB(50,50,70); aboutTab.Text = "ℹ️ ABOUT"; aboutTab.TextColor3 = Color3.fromRGB(255,255,255); aboutTab.TextSize = 14; aboutTab.Font = Enum.Font.GothamBold; aboutTab.Parent = tabFrame
+
+local contentFrame = Instance.new("Frame")
+contentFrame.Name = "ContentFrame"; contentFrame.Size = UDim2.new(1, -40, 1, -140); contentFrame.Position = UDim2.new(0,20,0,130); contentFrame.BackgroundColor3 = Color3.fromRGB(35,35,50); contentFrame.BorderSizePixel = 0; contentFrame.Parent = mainFrame
+local contentCorner = Instance.new("UICorner"); contentCorner.CornerRadius = UDim.new(0,10); contentCorner.Parent = contentFrame
+
+local bugContent = Instance.new("Frame"); bugContent.Name = "BugContent"; bugContent.Size = UDim2.new(1,0,1,0); bugContent.BackgroundTransparency = 1; bugContent.Parent = contentFrame
+createLabel(bugContent, "TAB NAME", UDim2.new(0,10,0,10))
+local bugTabInput = createInputField(bugContent, "BugTab", "e.g., Trolling", UDim2.new(0,10,0,35))
+createLabel(bugContent, "FEATURE NAME", UDim2.new(0,10,0,85))
+local bugFeatureInput = createInputField(bugContent, "BugFeature", "e.g., Stand pilot", UDim2.new(0,10,0,110))
+createLabel(bugContent, "REASON / DESCRIPTION", UDim2.new(0,10,0,160))
+local bugReasonInput = createInputField(bugContent, "BugReason", "Describe what happens when you enable it...", UDim2.new(0,10,0,185), UDim2.new(1, -20, 0, 100), true)
+
+local suggestContent = Instance.new("Frame"); suggestContent.Name = "SuggestContent"; suggestContent.Size = UDim2.new(1,0,1,0); suggestContent.BackgroundTransparency = 1; suggestContent.Visible = false; suggestContent.Parent = contentFrame
+createLabel(suggestContent, "YOUR SUGGESTION", UDim2.new(0,10,0,10))
+local suggestInput = createInputField(suggestContent, "Suggestion", "Describe your suggestion here...", UDim2.new(0,10,0,35), UDim2.new(1, -20, 0, 200), true)
+
+local aboutContent = Instance.new("Frame"); aboutContent.Name = "AboutContent"; aboutContent.Size = UDim2.new(1,0,1,0); aboutContent.BackgroundTransparency = 1; aboutContent.Visible = false; aboutContent.Parent = contentFrame
+local aboutTitle = Instance.new("TextLabel")
+aboutTitle.Size = UDim2.new(1, -20, 0, 30)
+aboutTitle.Position = UDim2.new(0,10,0,10)
+aboutTitle.BackgroundTransparency = 1
+aboutTitle.Text = "ABOUT / WHAT TO DO"
+aboutTitle.TextColor3 = Color3.fromRGB(0,255,255)
+aboutTitle.TextSize = 16
+aboutTitle.Font = Enum.Font.GothamBold
+aboutTitle.TextXAlignment = Enum.TextXAlignment.Left
+aboutTitle.Parent = aboutContent
+
+local aboutText = Instance.new("TextLabel")
+aboutText.Size = UDim2.new(1, -20, 1, -60)
+aboutText.Position = UDim2.new(0,10,0,50)
+aboutText.BackgroundTransparency = 1
+aboutText.Text = "What to do:\n\n• For bugs: fill the Tab Name, Feature Name, and a clear Reason/Description. Example: Tab: Arena, Feature: Teleport bug, Reason: Player teleports outside map.\n\n• For suggestions: describe the idea and why it helps. Be concise and polite.\n\n• Rate limit: You can send only 1 message every 30 seconds to prevent spam. If you try to send faster you will be asked to wait.\n\n• Toggle the UI with RightShift."
+aboutText.TextColor3 = Color3.fromRGB(200,200,220)
+aboutText.TextSize = 14
+aboutText.Font = Enum.Font.Gotham
+aboutText.TextWrapped = true
+aboutText.TextYAlignment = Enum.TextYAlignment.Top
+aboutText.Parent = aboutContent
+
+local submitBtn = Instance.new("TextButton")
+submitBtn.Name = "SubmitBtn"; submitBtn.Size = UDim2.new(1, -40, 0, 50); submitBtn.Position = UDim2.new(0,20,1,-70); submitBtn.BackgroundColor3 = Color3.fromRGB(0,255,136)
+submitBtn.Text = "SEND REPORT"; submitBtn.TextColor3 = Color3.fromRGB(0,0,0); submitBtn.TextSize = 16; submitBtn.Font = Enum.Font.GothamBold; submitBtn.Parent = mainFrame
+local submitCorner = Instance.new("UICorner"); submitCorner.CornerRadius = UDim.new(0,10); submitCorner.Parent = submitBtn
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "Status"; statusLabel.Size = UDim2.new(1, -40, 0, 20); statusLabel.Position = UDim2.new(0,20,1,-95); statusLabel.BackgroundTransparency = 1; statusLabel.Text = ""; statusLabel.TextColor3 = Color3.fromRGB(0,255,136); statusLabel.TextSize = 12; statusLabel.Font = Enum.Font.Gotham; statusLabel.Parent = mainFrame
+
+local currentTab = "Bug"
+local function switchTab(tab)
+    currentTab = tab
+    if tab == "Bug" then
+        bugContent.Visible = true; suggestContent.Visible = false; aboutContent.Visible = false
+        submitBtn.Text = "SEND BUG REPORT"; submitBtn.BackgroundColor3 = Color3.fromRGB(0,255,136); submitBtn.Visible = true
+        bugTab.BackgroundColor3 = Color3.fromRGB(0,255,255); bugTab.TextColor3 = Color3.fromRGB(0,0,0)
+        suggestTab.BackgroundColor3 = Color3.fromRGB(50,50,70); suggestTab.TextColor3 = Color3.fromRGB(255,255,255)
+        aboutTab.BackgroundColor3 = Color3.fromRGB(50,50,70); aboutTab.TextColor3 = Color3.fromRGB(255,255,255)
+    elseif tab == "Suggest" then
+        bugContent.Visible = false; suggestContent.Visible = true; aboutContent.Visible = false
+        submitBtn.Text = "SEND SUGGESTION"; submitBtn.BackgroundColor3 = Color3.fromRGB(255,200,0); submitBtn.Visible = true
+        suggestTab.BackgroundColor3 = Color3.fromRGB(255,200,0); suggestTab.TextColor3 = Color3.fromRGB(0,0,0)
+        bugTab.BackgroundColor3 = Color3.fromRGB(50,50,70); bugTab.TextColor3 = Color3.fromRGB(255,255,255)
+        aboutTab.BackgroundColor3 = Color3.fromRGB(50,50,70); aboutTab.TextColor3 = Color3.fromRGB(255,255,255)
+    else
+        bugContent.Visible = false; suggestContent.Visible = false; aboutContent.Visible = true
+        submitBtn.Visible = false
+        aboutTab.BackgroundColor3 = Color3.fromRGB(0,170,255); aboutTab.TextColor3 = Color3.fromRGB(0,0,0)
+        bugTab.BackgroundColor3 = Color3.fromRGB(50,50,70); bugTab.TextColor3 = Color3.fromRGB(255,255,255)
+        suggestTab.BackgroundColor3 = Color3.fromRGB(50,50,70); suggestTab.TextColor3 = Color3.fromRGB(255,255,255)
+    end
+end
+
+bugTab.MouseButton1Click:Connect(function() switchTab("Bug") end)
+suggestTab.MouseButton1Click:Connect(function() switchTab("Suggest") end)
+aboutTab.MouseButton1Click:Connect(function() switchTab("About") end)
+
+submitBtn.MouseEnter:Connect(function()
+    TweenService:Create(submitBtn, TweenInfo.new(0.2), {Size = UDim2.new(1, -35, 0, 52)}):Play()
+end)
+submitBtn.MouseLeave:Connect(function()
+    TweenService:Create(submitBtn, TweenInfo.new(0.2), {Size = UDim2.new(1, -40, 0, 50)}):Play()
+end)
+
+local function uiNotify(text, isError)
+    statusLabel.Text = text or ""
+    statusLabel.TextColor3 = isError and Color3.fromRGB(255,80,80) or Color3.fromRGB(0,255,136)
+end
+
+local function sendBug(tabName, feature, reason)
+    tabName = sanitize(tabName); feature = sanitize(feature); reason = sanitize(reason)
+    local desc = ("**Tab:** %s\n**Feature:** %s\n**Reason:** %s"):format(tabName, feature, reason)
+    local payload = makeEmbedPayload("🐛 New Bug Report", desc, 15158332)
+
+    if remote and remote:IsA("RemoteEvent") then
+        local ok, err = pcall(function()
+            remote:FireServer({type = "bug", tab = tabName, feature = feature, reason = reason})
+        end)
+        if ok then return true, "Delivered to server RemoteEvent" end
+    end
+
+    return postToWebhook(BUG_REPORT_WEBHOOK, payload)
+end
+
+local function sendSuggestion(text)
+    text = sanitize(text)
+    local payload = makeEmbedPayload("💡 New Suggestion", text, 3066993)
+
+    if remote and remote:IsA("RemoteEvent") then
+        local ok, err = pcall(function()
+            remote:FireServer({type = "suggestion", suggestion = text})
+        end)
+        if ok then return true, "Delivered to server RemoteEvent" end
+    end
+
+    return postToWebhook(SUGGESTION_WEBHOOK, payload)
+end
+
+local lastSend = 0
+local COOLDOWN = 30
+
+submitBtn.MouseButton1Click:Connect(function()
+    local now = os.time()
+    if now - lastSend < COOLDOWN then
+        uiNotify("⏳ Please wait "..tostring(COOLDOWN - (now - lastSend)).."s before sending.", true)
+        return
+    end
+
+    TweenService:Create(submitBtn, TweenInfo.new(0.08), {Size = UDim2.new(1, -45, 0, 48)}):Play()
+    wait(0.08)
+    TweenService:Create(submitBtn, TweenInfo.new(0.08), {Size = UDim2.new(1, -40, 0, 50)}):Play()
+
+    lastSend = now
+
+    if currentTab == "Bug" then
+        local t = bugTabInput.Text or ""
+        local f = bugFeatureInput.Text or ""
+        local r = bugReasonInput.Text or ""
+        if t == "" or f == "" or r == "" then
+            uiNotify("❌ Please fill in all fields!", true)
+            return
+        end
+
+        uiNotify("📤 Sending...", false)
+        local ok, msg = sendBug(t,f,r)
+        if ok then
+            uiNotify("✅ Bug report sent! ("..tostring(msg)..")", false)
+            bugTabInput.Text = ""; bugFeatureInput.Text = ""; bugReasonInput.Text = ""
+        else
+            uiNotify("❌ Failed to send: "..tostring(msg), true)
+            warn("[WebhookUI] sendBug failed:", tostring(msg))
+        end
+    else
+        local s = suggestInput.Text or ""
+        if not s:match("%S") then
+            uiNotify("❌ Please enter a suggestion!", true)
+            return
+        end
+
+        uiNotify("📤 Sending...", false)
+        local ok, msg = sendSuggestion(s)
+        if ok then
+            uiNotify("✅ Suggestion sent! ("..tostring(msg)..")", false)
+            suggestInput.Text = ""
+        else
+            uiNotify("❌ Failed to send: "..tostring(msg), true)
+            warn("[WebhookUI] sendSuggestion failed:", tostring(msg))
+        end
+    end
+end)
+
+local dragging = false
+local dragStart
+local startPos
+local function update(input)
+    if not dragging then return end
+    local delta = input.Position - dragStart
+    mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then update(input) end
+end)
+
+local uiVisible = true
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.RightShift then
+        uiVisible = not uiVisible
+        mainFrame.Visible = uiVisible
+    end
+end)
+
+mainFrame.Size = UDim2.new(0,0,0,0)
+mainFrame.Visible = true
+TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Size = UDim2.new(0,500,0,600)}):Play()
+
+print("[WebhookUI] Loaded. RemoteEvent:", tostring(remote ~= nil and remote.ClassName or "none"))
+print("[WebhookUI] Available HTTP methods:",
+      "syn.request:", type(syn) == "table" and type(syn.request) == "function",
+      "http.request:", type(http) == "table" and type(http.request) == "function",
+      "http_request:", type(http_request) == "function",
+      "request:", type(request) == "function",
+      "HttpService.PostAsync available:", type(HttpService.PostAsync) == "function")
+
+switchTab("Bug")
