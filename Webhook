@@ -158,7 +158,7 @@ gradient.Parent = mainFrame
 
 local title = Instance.new("TextLabel")
 title.Name = "Title"; title.Size = UDim2.new(1,0,0,50); title.Position = UDim2.new(0,0,0,10)
-title.BackgroundTransparency = 1; title.Text = "WEBHOOK SYSTEM"; title.TextColor3 = Color3.fromRGB(0,255,255)
+title.BackgroundTransparency = 1; title.Text = "Azure.WebHook"; title.TextColor3 = Color3.fromRGB(0,255,255)
 title.TextSize = 28; title.Font = Enum.Font.GothamBold; title.Parent = mainFrame
 
 local subtitle = Instance.new("TextLabel")
