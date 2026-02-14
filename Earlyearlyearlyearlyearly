@@ -9,6 +9,101 @@ do
         WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/weatherwess-lgtm/Azure/refs/heads/main/Gofile"))()
     end
 end
+local BlackListed = {
+    "PlayerName1",           
+    "PlayerName2",          
+    123456789,               
+    "AnotherPlayer",        
+}
+
+local function isPlayerBlacklisted(player)
+    if not player then return false end
+    
+    local playerName = player.Name
+    local userId = player.UserId
+    
+    for _, entry in pairs(BlackListed) do
+        if type(entry) == "string" then
+            if playerName:lower() == entry:lower() then
+                return true, entry
+            end
+        elseif type(entry) == "number" then
+            if userId == entry then
+                return true, tostring(entry)
+            end
+        end
+    end
+    
+    return false, nil
+end
+
+local localPlayer = game:GetService("Players").LocalPlayer
+local isBlacklisted, blacklistEntry = isPlayerBlacklisted(localPlayer)
+
+if isBlacklisted then
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BlacklistKick"
+    screenGui.Parent = game:GetService("CoreGui")
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 400, 0, 200)
+    frame.Position = UDim2.new(0.5, -200, 0.5, -100)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 50)
+    title.Position = UDim2.new(0, 0, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "⛔ ACCESS DENIED ⛔"
+    title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    title.TextSize = 28
+    title.Font = Enum.Font.GothamBold
+    title.Parent = frame
+    
+    local message = Instance.new("TextLabel")
+    message.Size = UDim2.new(1, -40, 0, 80)
+    message.Position = UDim2.new(0, 20, 0, 70)
+    message.BackgroundTransparency = 1
+    message.Text = "You are blacklisted from using this script.\n\nPlayer: " .. localPlayer.Name .. "\nReason: Unauthorized user"
+    message.TextColor3 = Color3.fromRGB(255, 255, 255)
+    message.TextSize = 16
+    message.Font = Enum.Font.Gotham
+    message.TextWrapped = true
+    message.Parent = frame
+    
+    local kickButton = Instance.new("TextButton")
+    kickButton.Size = UDim2.new(0, 150, 0, 40)
+    kickButton.Position = UDim2.new(0.5, -75, 1, -60)
+    kickButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+    kickButton.Text = "Leave Game"
+    kickButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    kickButton.TextSize = 16
+    kickButton.Font = Enum.Font.GothamBold
+    kickButton.Parent = frame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = kickButton
+    
+    kickButton.MouseButton1Click:Connect(function()
+        localPlayer:Kick("You are blacklisted from using this script.")
+    end)
+    
+    task.delay(10, function()
+        pcall(function()
+            localPlayer:Kick("You are blacklisted from using this script.")
+        end)
+    end)
+    
+    return
+end
+local WindUI
 WindUI:Popup({
     Title = "Welcome",
     Icon = "bird",
@@ -24,7 +119,7 @@ setclipboard("https://discord.gg/cgcFqpfRke")
 loadstring(game:HttpGet("https://raw.githubusercontent.com/weatherwess-lgtm/FlyToggle/refs/heads/main/Clipboard"))()
 local Window = WindUI:CreateWindow({
     Title = "YBA Script",
-    Icon = "cat",
+    Icon = "rbxthumb://type=Asset&id=10670510726&w=150&h=150",
     Author = "by Azure",
     Folder = "yba_script",
     NewElements = true,
@@ -320,18 +415,24 @@ WhatsNewSection:Section({
     FontWeight = Enum.FontWeight.Medium,
 })
 AboutSection:Space()
-AboutSection:Section({
-    Title = "Credits",
-    TextSize = 18,
-    TextTransparency = .35,
-    FontWeight = Enum.FontWeight.Medium,
-})
-AboutSection:Section({
-    Title = "Hori, Forca, Azure, Diablo, Zakori. Credits to Xenon For the bypass",
-    TextSize = 18,
-    TextTransparency = .35,
-    FontWeight = Enum.FontWeight.Medium,
-})
+
+AboutSection:Image({
+        Image = "rbxassetid://112248091912012",
+        Size = UDim2.fromOffset(100,100)
+    })
+AboutSection:Paragraph({ Title = "Credits", Desc = "Dev-Team", TextSize = 14 })
+
+AboutSection:Paragraph({ Title = "@Kazakori", Desc = "Dev-Helper", TextSize = 14 })
+
+AboutSection:Paragraph({ Title = "@ErasedDiablo", Desc = "Co-Owner-Dev", TextSize = 16 })
+
+AboutSection:Paragraph({ Title = "@Gaxhlol", Desc = "Main.Dev-OG", TextSize = 16 })
+
+AboutSection:Paragraph({ Title = "@Kaz", Desc = "Dev/Helper-Quited", TextSize = 14 })
+
+AboutSection:Paragraph({ Title = "@Findingwaysto****", Desc = "Dev/Helper-Quited", TextSize = 14 })
+
+AboutSection:Paragraph({ Title = "UI Library", Desc = "WindUI by Footagesus - best ui lib fr", TextSize = 14 })
 local FarmingTab = Window:Tab({ Title = "Item Farming", Icon = "skull" })
 local StandFarmTab = Window:Tab({ Title = "Stand Farm", Icon = "sword" })
 local QuestTab = Window:Tab({ Title = "Quest", Icon = "list" })
@@ -342,6 +443,7 @@ local VisualTab = Window:Tab({ Title = "Visual", Icon = "eye" })
 local AdjustTab = Window:Tab({ Title = "Adjust", Icon = "sliders-horizontal" })
 local MiscTab = Window:Tab({ Title = "Misc", Icon = "zap" })
 local TrollingTab = Window:Tab({ Title = "Trolling", Icon = "smile" })
+local KeybindsTab = Window:Tab({ Title = "Keybinds", Icon = "keyboard" })
 local SettingsTab = Window:Tab({ Title = "Settings", Icon = "settings" })
 local player = game.Players.LocalPlayer
 local RunService = game:GetService("RunService")
@@ -1292,6 +1394,7 @@ FarmingTab:Space()
 FarmingTab:Dropdown({
     Flag = "FarmItem",
     Title = "Select Item to Farm",
+    SearchBarEnabled = true,
     Values = itemOptions,
     Multi = true,
     Callback = function(selected)
@@ -1424,6 +1527,7 @@ SellingTab:Space()
 SellingTab:Dropdown({
     Flag = "AutoSellItems",
     Title = "Auto Sell Items (on Pickup)",
+    SearchBarEnabled = true,
     Values = itemOptions,
     Multi = true,
     Callback = function(selected)
@@ -1448,6 +1552,7 @@ SellingTab:Space()
 SellingTab:Dropdown({
     Flag = "SellAllItems",
     Title = "Select Items to Sell All Now",
+    SearchBarEnabled = true,
     Values = itemOptions,
     Multi = true,
     Callback = function(selected)
@@ -2761,6 +2866,152 @@ game.Players.LocalPlayer.CharacterAdded:Connect(function()
     pilotToggle:Set(false)
   end
 end)
+do
+    local KeybindsSection = KeybindsTab:Section({ Title = "Keybind Settings" })
+    
+    local KeybindStorage = {
+        Fly = "",
+        StandPilot = "",
+        ItemFarm = "",
+        InfDash = ""
+    }
+    
+    local function handleKeybind(key, feature)
+        if key == "" or key == nil then return end
+        
+        local success, err = pcall(function()
+            if feature == "Fly" then
+                local newValue = not flyEnabled
+                flyToggle:Set(newValue)
+            elseif feature == "StandPilot" then
+                local newValue = not getgenv().PilotConfig.IsActive
+                pilotToggle:Set(newValue)
+            elseif feature == "ItemFarm" then
+                local newValue = not normalFarmOn
+                tpToItemsToggle:Set(newValue)
+            elseif feature == "InfDash" then
+                local currentState = Util:GetState("Infinite Dash")
+                infiniteDashToggle:Set(not currentState)
+            end
+        end)
+        
+        if not success then
+            warn("Keybind error for " .. feature .. ": " .. tostring(err))
+        end
+    end
+    
+    local KeybindConnections = {}
+    
+    local function setupKeybindListener(feature)
+        if KeybindConnections[feature] then
+            KeybindConnections[feature]:Disconnect()
+            KeybindConnections[feature] = nil
+        end
+        
+        local key = KeybindStorage[feature]
+        if key == "" or key == nil then return end
+        
+        local keyCode = nil
+        pcall(function()
+            keyCode = Enum.KeyCode[key]
+        end)
+        
+        if not keyCode then return end
+        
+        KeybindConnections[feature] = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.KeyCode == keyCode then
+                handleKeybind(key, feature)
+            end
+        end)
+    end
+    
+    KeybindsSection:Input({
+        Flag = "KeybindFly",
+        Title = "Fly Keybind",
+        Placeholder = "Leave blank to disable...",
+        Callback = function(value)
+            local upperValue = string.upper(value)
+            KeybindStorage.Fly = upperValue
+            setupKeybindListener("Fly")
+        end
+    })
+    
+    KeybindsSection:Input({
+        Flag = "KeybindStandPilot",
+        Title = "Stand Pilot Keybind",
+        Placeholder = "Leave blank to disable...",
+        Callback = function(value)
+            local upperValue = string.upper(value)
+            KeybindStorage.StandPilot = upperValue
+            setupKeybindListener("StandPilot")
+        end
+    })
+    
+    KeybindsSection:Input({
+        Flag = "KeybindItemFarm",
+        Title = "Item Farm Keybind",
+        Placeholder = "Leave blank to disable...",
+        Callback = function(value)
+            local upperValue = string.upper(value)
+            KeybindStorage.ItemFarm = upperValue
+            setupKeybindListener("ItemFarm")
+        end
+    })
+    
+    KeybindsSection:Input({
+        Flag = "KeybindInfDash",
+        Title = "Infinite Dash Keybind",
+        Placeholder = "Leave blank to disable...",
+        Callback = function(value)
+            local upperValue = string.upper(value)
+            KeybindStorage.InfDash = upperValue
+            setupKeybindListener("InfDash")
+        end
+    })
+    
+    KeybindsSection:Space()
+    
+    KeybindsSection:Button({
+        Title = "Reset All Keybinds",
+        Callback = function()
+            for k, _ in pairs(KeybindStorage) do
+                KeybindStorage[k] = ""
+            end
+            
+            for feature, conn in pairs(KeybindConnections) do
+                if conn then
+                    conn:Disconnect()
+                end
+                KeybindConnections[feature] = nil
+            end
+            
+            pcall(function()
+                if KeybindsSection then
+                    for _, element in pairs(KeybindsSection:GetChildren() or {}) do
+                        if element and element.Clear then
+                            element:Clear()
+                        elseif element and element.Set then
+                            element:Set("")
+                        end
+                    end
+                end
+            end)
+            
+            notify("YBA Script", "All keybinds have been reset!")
+        end
+    })
+    
+    game:GetService("CoreGui").ChildRemoved:Connect(function(child)
+        if child.Name:find("WindUI") or child.Name:find("Azure") then
+            for _, conn in pairs(KeybindConnections) do
+                if conn then
+                    pcall(function() conn:Disconnect() end)
+                end
+            end
+        end
+    end)
+end
 local ConfigTab = SettingsTab
 local ConfigManager = Window.ConfigManager
 local ConfigName = "default"
@@ -2837,6 +3088,48 @@ ConfigTab:Dropdown({
     end
 })
 ConfigTab:Space()
+
+local webhookUIToggle = ConfigTab:Toggle({
+    Flag = "WebhookUI",
+    Title = "Open Webhook UI",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local success, result = pcall(function()
+                return loadstring(game:HttpGet("https://raw.githubusercontent.com/horithedev/Bruh/refs/heads/main/Webhook"))()
+            end)
+            
+            if success then
+                notify("YBA Script", "Webhook UI enabled!")
+            else
+                notify("YBA Script", "Failed to load Webhook UI: " .. tostring(result))
+                webhookUIToggle:Set(false)
+            end
+        else
+            pcall(function()
+                if getgenv().WebhookUICleanup then
+                    getgenv().WebhookUICleanup()
+                end
+            end)
+            
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                if player and player.PlayerGui then
+                    local commonNames = {"WebhookUI", "WebhookGui", "Webhook", "BruhUI"}
+                    for _, name in pairs(commonNames) do
+                        local gui = player.PlayerGui:FindFirstChild(name)
+                        if gui then
+                            gui:Destroy()
+                        end
+                    end
+                end
+            end)
+            
+            notify("YBA Script", "Webhook UI disabled!")
+        end
+    end
+})
+ConfigTab:Space()
 ConfigTab:Keybind({
         Flag = "KeybindTest",
         Title = "Keybind",
@@ -2869,10 +3162,12 @@ local function LoadSBRFeatures()
     local isSBR = game.PlaceId == 4643697430
     
     if not isSBR then
-        SBRTab:Section({ Title = "⚠️ NOT IN SBR GAME" })
-        SBRTab:Section({ Title = "Join Steel Ball Run to use these features" })
+        SBRTab:Section({ Title = "⚠️ In Progress" })
+        SBRTab:Section({ Title = "Steel Ball Run is on progress please do not use while we work on it" })
         SBRTab:Button({
             Title = "Teleport to SBR",
+            Locked = true,
+            LockedTitle = "Please do not use while we work on it",
             Callback = function()
                 game.TeleportService:Teleport(4643697430, game.Players.LocalPlayer)
             end
@@ -4099,8 +4394,7 @@ local function LoadStandFarmFeatures()
                                 task.wait(5)
                             end
                         elseif not itemsFarmed then
-                            notify("Stand Farm", "Waiting for items to spawn...")
-                            task.wait(30)
+                            task.wait(0.1)
                         end
                     else
                         notify("Stand Farm", "Waiting... (have items but can't use?)")
@@ -4121,6 +4415,7 @@ local function LoadStandFarmFeatures()
         Flag = "StandDropdown",
         Title = "Select Stands to Farm",
         Values = Util:GetTable("AllStands"),
+        SearchBarEnabled = true,
         Multi = true,
         Callback = function(selected)
             Util:SetTable("Stands", selected)
@@ -4362,7 +4657,7 @@ local function CollectRokaArrow()
         ["Aerosmith"] = true,
         ["Beach Boy"] = true,
         ["Mr. President"] = true,
-        ["Mr President"] = true,
+        ["White Album"] = true,
         ["Anubis"] = true,
         ["Tusk ACT 1"] = true,
         ["Tusk Act 1"] = true,
@@ -4491,7 +4786,6 @@ local function CollectRokaArrow()
             end
             
             if currentStand ~= "None" then
-                notify("YBA Script", "Got stand: " .. currentStand .. " (checking if valid)...")
                 task.wait(0.5)
                 
                 if blacklistedStands[currentStand] then
@@ -4989,12 +5283,13 @@ QuestFarmSection:Toggle({
     Flag = "QuestFarmEnabled",
     Title = "Enable Quest Farm",
     Default = false,
-    Callback = function(value)
+            Callback = function(value)
         getgenv().QuestFarmEnabled = value
         if value then
             notify("YBA Script", "Quest Farm started!")
             getgenv().CompletedQuest = true
             enableNoclip()
+            
             local function GetPlayerLevel()
                 local player = GetPlayer()
                 if player and player:FindFirstChild("PlayerStats") and player.PlayerStats:FindFirstChild("Level") then
@@ -5003,58 +5298,102 @@ QuestFarmSection:Toggle({
                 return 0
             end
             
-            local function GetQuestLevelRequirement(questName)
-                if not questName then return 0 end
-                local levelReq = tonumber(questName:match("(%d+)"))
-                return levelReq or 0
-            end
-            
-            local function GetBestAvailableQuest()
-                local playerLevel = GetPlayerLevel()
-                local bestQuest = nil
-                local highestReq = -1
-                
-                for _, questName in pairs(ParsedQuests) do
-                    if questName ~= "No quests available" then
-                        local levelReq = GetQuestLevelRequirement(questName)
-                        if levelReq and levelReq <= playerLevel and levelReq > highestReq then
-                            highestReq = levelReq
-                            bestQuest = questName
-                        end
-                    end
-                end
-                return bestQuest
-            end
-            
-            local function UpdateQuestDropdown(newQuest)
-                pcall(function()
-                    for _, element in pairs(QuestFarmSection:GetChildren() or {}) do
-                        if element.Flag == "SelectedQuest" or element.Title == "Select Quest" then
-                            if element.Set then
-                                element:Set(newQuest)
-                            elseif element.Update then
-                                element:Update({Value = newQuest})
-                            end
-                            break
-                        end
-                    end
-                end)
-            end
-            
-            local selectedQuest = getgenv().SelectedQuest
             local playerLevel = GetPlayerLevel()
-            local selectedQuestLevel = GetQuestLevelRequirement(selectedQuest)
+            local hasStand = HasStand()
             
-            if selectedQuestLevel > playerLevel then
-                local bestQuest = GetBestAvailableQuest()
-                if bestQuest then
-                    getgenv().SelectedQuest = bestQuest
-                    UpdateQuestDropdown(bestQuest)
-                else
-                    notify("YBA Script", "WARNING: No quests available for level " .. playerLevel)
+            if playerLevel <= 2 and not hasStand and getgenv().QuestMethod == "With Stand" then
+                notify("YBA Script", "Level " .. playerLevel .. " detected! Completing Level 1 quest WITHOUT stand first...")
+                
+                local originalMethod = getgenv().QuestMethod
+                getgenv().QuestMethod = "Without Stand"
+                
+                getgenv().SelectedQuest = "Officer Sam [Lvl. 1+]"
+                notify("YBA Script", "Auto-selected Level 1 quest: Officer Sam")
+                
+                local startTime = tick()
+                local maxWait = 300
+                
+                while getgenv().QuestFarmEnabled and playerLevel <= 2 and tick() - startTime < maxWait do
+                    playerLevel = GetPlayerLevel()
+                    
+                    if playerLevel >= 3 then
+                        notify("YBA Script", "Leveled up to " .. playerLevel .. "! Now getting stand...")
+                        break
+                    end
+                    
+                    if getgenv().CompletedQuest then
+                        local questNPC = workspace:FindFirstChild("Dialogues") and workspace.Dialogues:FindFirstChild("Officer Sam [Lvl. 1+]")
+                        if questNPC then
+                            pcall(function() GetQuest(questNPC) end)
+                            getgenv().CompletedQuest = false
+                        end
+                    else
+                        local living = workspace:FindFirstChild("Living")
+                        if living then
+                            for _, v in pairs(living:GetChildren()) do
+                                if not getgenv().QuestFarmEnabled then break end
+                                if v.Name == "Thug" and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Health") and v.Health.Value > 0 then
+                                    pcall(function() KillEnemy(v) end)
+                                    task.wait(math.max(0.05, getgenv().QuestDelay))
+                                    
+                                    playerLevel = GetPlayerLevel()
+                                    if playerLevel >= 3 then break end
+                                end
+                            end
+                        end
+                    end
+                    
+                    task.wait(0.1)
                 end
-            else
+                
+                if playerLevel >= 3 then
+                    notify("YBA Script", "Collecting arrows and rokakaka for stand...")
+                    local success = CollectRokaArrow()
+                    if success then
+                        notify("YBA Script", "Stand obtained! Switching to WITH STAND mode...")
+                        local character = GetCharacter()
+                        local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+                        if humanoid then
+                            humanoid.Health = 0
+                        end
+                        GetPlayer().CharacterAdded:Wait()
+                        task.wait(2)
+                    else
+                        notify("YBA Script", "Failed to get stand, will retry...")
+                    end
+                end
+                
+                getgenv().QuestMethod = originalMethod
+                notify("YBA Script", "Now farming WITH STAND enabled!")
             end
+            
+            local function GetPlayerLevel()
+    local hasStand = HasStand()
+    
+    if getgenv().QuestMethod ~= "With Stand" then return true end
+    if playerLevel < 3 then return true end
+    
+    if not hasStand then
+        notify("YBA Script", "Level " .. playerLevel .. " requires stand! Obtaining one...")
+        local success = CollectRokaArrow()
+        if success then
+            local character = GetCharacter()
+            local humanoid = character and character:FindFirstChildWhichIsA("Humanoid")
+            if humanoid then
+                humanoid.Health = 0
+            end
+            GetPlayer().CharacterAdded:Wait()
+            task.wait(2)
+            notify("YBA Script", "Stand obtained! Resuming quest farming...")
+            return true
+        else
+            notify("YBA Script", "Failed to obtain stand!")
+            return false
+        end
+    end
+    return true
+end
+            
             local function GetPlayerLevel()
                 local player = GetPlayer()
                 if player and player:FindFirstChild("PlayerStats") and player.PlayerStats:FindFirstChild("Level") then
@@ -5110,7 +5449,6 @@ QuestFarmSection:Toggle({
                 if bestQuest then
                     getgenv().SelectedQuest = bestQuest
                     UpdateQuestDropdown(bestQuest)
-                    notify("YBA Script", "Level " .. playerLevel .. " too low for " .. currentQuest .. ". Auto-switched to: " .. bestQuest)
                 else
                     notify("YBA Script", "WARNING: No quests available for level " .. playerLevel)
                 end
@@ -5242,20 +5580,11 @@ QuestFarmSection:Toggle({
                         continue
                     end
 
-                    if getgenv().QuestMethod == "With Stand" and playerLevel >= 3 and not HasStand() and not getgenv().GettingStand then
-                        getgenv().GettingStand = true
-                        notify("YBA Script", "Level " .. playerLevel .. " reached! Obtaining stand...")
-                        
-                        local success = CollectRokaArrow()
-                        if success then
-                            notify("YBA Script", "Stand obtained! Resuming quest farming...")
-                            getgenv().CompletedQuest = true
-                        else
-                            notify("YBA Script", "Failed to get stand, retrying...")
+                    if getgenv().QuestMethod == "With Stand" and playerLevel >= 3 and not HasStand() then
+                        if not EnsureStandForQuesting() then
+                            task.wait(2)
+                            continue
                         end
-                        getgenv().GettingStand = false
-                        task.wait(1)
-                        continue
                     end
 
                     if getgenv().CompletedQuest then
@@ -5381,6 +5710,7 @@ local autoPresOnMax = false
 QuestFarmSection:Toggle({
     Flag = "AutoPresOnMax",
     Title = "Auto Pres on Max",
+    Locked = true,
     Default = false,
     Callback = function(value)
         autoPresOnMax = value
@@ -5432,6 +5762,7 @@ QuestFarmSection:Toggle({
     local npcDropdown = NpcFarmSection:Dropdown({
         Flag = "SelectedNPC",
         Title = "Select NPC",
+        SearchBarEnabled = true,
         Values = {},        
         Value = "",         
         Callback = function(selected)
