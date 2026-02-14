@@ -1,14 +1,3 @@
- local WindUI
-do
-    local ok, result = pcall(function()
-        return require("./src/Init")
-    end)
-    if ok then
-        WindUI = result
-    else
-        WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/weatherwess-lgtm/Azure/refs/heads/main/Gofile"))()
-    end
-end
 local function isPlayerBlacklisted(player)
     if not player then return false end
     for _, entry in pairs(BlackListed) do
@@ -25,6 +14,17 @@ local localPlayer = game:GetService("Players").LocalPlayer
 if isPlayerBlacklisted(localPlayer) then
     localPlayer:Kick("You are blacklisted from using this script.")
     return
+end
+local WindUI
+do
+    local ok, result = pcall(function()
+        return require("./src/Init")
+    end)
+    if ok then
+        WindUI = result
+    else
+        WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/weatherwess-lgtm/Azure/refs/heads/main/Gofile"))()
+    end
 end
 WindUI:Popup({
     Title = "Welcome",
