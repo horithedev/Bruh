@@ -9,101 +9,23 @@ do
         WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/weatherwess-lgtm/Azure/refs/heads/main/Gofile"))()
     end
 end
-local BlackListed = {
-    "PlayerName1",           
-    "PlayerName2",          
-    123456789,               
-    "AnotherPlayer",        
-}
-
 local function isPlayerBlacklisted(player)
     if not player then return false end
-    
-    local playerName = player.Name
-    local userId = player.UserId
-    
     for _, entry in pairs(BlackListed) do
-        if type(entry) == "string" then
-            if playerName:lower() == entry:lower() then
-                return true, entry
-            end
-        elseif type(entry) == "number" then
-            if userId == entry then
-                return true, tostring(entry)
-            end
+        if type(entry) == "string" and player.Name:lower() == entry:lower() then
+            return true
+        elseif type(entry) == "number" and player.UserId == entry then
+            return true
         end
     end
-    
-    return false, nil
+    return false
 end
 
 local localPlayer = game:GetService("Players").LocalPlayer
-local isBlacklisted, blacklistEntry = isPlayerBlacklisted(localPlayer)
-
-if isBlacklisted then
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "BlacklistKick"
-    screenGui.Parent = game:GetService("CoreGui")
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 200)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -100)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    frame.BorderSizePixel = 0
-    frame.Parent = screenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 50)
-    title.Position = UDim2.new(0, 0, 0, 10)
-    title.BackgroundTransparency = 1
-    title.Text = "⛔ ACCESS DENIED ⛔"
-    title.TextColor3 = Color3.fromRGB(255, 50, 50)
-    title.TextSize = 28
-    title.Font = Enum.Font.GothamBold
-    title.Parent = frame
-    
-    local message = Instance.new("TextLabel")
-    message.Size = UDim2.new(1, -40, 0, 80)
-    message.Position = UDim2.new(0, 20, 0, 70)
-    message.BackgroundTransparency = 1
-    message.Text = "You are blacklisted from using this script.\n\nPlayer: " .. localPlayer.Name .. "\nReason: Unauthorized user"
-    message.TextColor3 = Color3.fromRGB(255, 255, 255)
-    message.TextSize = 16
-    message.Font = Enum.Font.Gotham
-    message.TextWrapped = true
-    message.Parent = frame
-    
-    local kickButton = Instance.new("TextButton")
-    kickButton.Size = UDim2.new(0, 150, 0, 40)
-    kickButton.Position = UDim2.new(0.5, -75, 1, -60)
-    kickButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-    kickButton.Text = "Leave Game"
-    kickButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    kickButton.TextSize = 16
-    kickButton.Font = Enum.Font.GothamBold
-    kickButton.Parent = frame
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 6)
-    btnCorner.Parent = kickButton
-    
-    kickButton.MouseButton1Click:Connect(function()
-        localPlayer:Kick("You are blacklisted from using this script.")
-    end)
-    
-    task.delay(10, function()
-        pcall(function()
-            localPlayer:Kick("You are blacklisted from using this script.")
-        end)
-    end)
-    
+if isPlayerBlacklisted(localPlayer) then
+    localPlayer:Kick("You are blacklisted from using this script.")
     return
 end
-local WindUI
 WindUI:Popup({
     Title = "Welcome",
     Icon = "bird",
